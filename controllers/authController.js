@@ -1,29 +1,42 @@
-import {Auth,Profile} from '../models/userModel.js';
 import { hash, compare } from 'bcryptjs';
 import jwt from 'jsonwebtoken';
 import { createTransport } from 'nodemailer';
+import { db } from '../config/db.js';
 
-// Register User
 export async function register(req, res) {
     const { name, email, mobile } = req.body;
-    const password = Math.random().toString(36).slice(-8); // Auto-generated password
-    const username = `${name.toLowerCase().replace(/\s+/g, '')}${Date.now()}`; // Unique username
+    const password = generateRandomPassword(); // Generate a random password
+    const username = await generateUniqueUsername(name, email); // Generate a unique username
 
     try {
         const hashedPassword = await hash(password, 10);
-        const user = new Auth({ name, email, mobile, password: hashedPassword, username });
-        await user.save();
+        
+        // Create a new user
+        const user = await db.auth.create({
+            data: {
+                name,
+                email,
+                mobile,
+                password: hashedPassword,
+                username,
+            },
+        });
 
         // Create a new profile for the user
-        const profile = new Profile({ user: user._id });
-        await profile.save();
+        const profile = await db.profile.create({
+            data: {
+                userId: user.id, // Assuming userId is the foreign key in Profile
+            },
+        });
 
         // Update user with profile reference
-        user.profile = profile._id;
-        await user.save();
+        await db.auth.update({
+            where: { id: user.id },
+            data: { profileId: profile.id }, // Assuming profileId is the foreign key in Auth
+        });
 
         // Send verification email
-        sendVerificationEmail(user.email, user.verificationCode);
+        sendVerificationEmail(user.email, password); // Send the generated password
 
         res.status(201).json({ message: 'User  registered successfully. Please verify your email.' });
     } catch (error) {
@@ -35,19 +48,51 @@ export async function register(req, res) {
 export async function login(req, res) {
     const { emailOrMobile, password } = req.body;
     try {
-        const user = await Auth.findOne({ $or: [{ email: emailOrMobile }, { mobile: emailOrMobile }, { username: emailOrMobile }] });
+        const user = await db.auth.findUnique({
+            where: {
+                OR: [
+                    { email: emailOrMobile },
+                    { mobile: emailOrMobile },
+                    { username: emailOrMobile },
+                ],
+            },
+        });
+
         if (!user) return res.status(404).json({ message: 'User  not found' });
 
         const isMatch = await compare(password, user.password);
         if (!isMatch) return res.status(400).json({ message: 'Invalid credentials' });
 
-        const token = jwt.sign({ id: user._id }, process.env.JWT_SECRET, { expiresIn: '1h' });
+        const token = jwt.sign({ id: user.id }, process.env.JWT_SECRET, { expiresIn: '1h' });
         res.json({ token, user });
     } catch (error) {
         res.status(500).json({ error: error.message });
     }
 }
+// Function to generate a random password
+const generateRandomPassword = (length = 12) => {
+    const charset = "abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789!@#$%^&*()_+";
+    let password = "";
+    for (let i = 0; i < length; i++) {
+        const randomIndex = Math.floor(Math.random() * charset.length);
+        password += charset[randomIndex];
+    }
+    return password;
+};
+// Function to generate a unique username
+const generateUniqueUsername = async (name, email) => {
+    const baseUsername = `${name.toLowerCase().replace(/\s+/g, '')}${email.split('@')[0]}`;
+    let username = baseUsername;
+    let count = 1;
 
+    // Check for uniqueness in the database
+    while (await db.auth.findUnique({ where: { username } })) {
+        username = `${baseUsername}${count}`;
+        count++;
+    }
+
+    return username;
+};
 // Send Verification Email
 const sendVerificationEmail = (email, verificationCode) => {
     const transporter = createTransport({

@@ -11,73 +11,126 @@ generator client {
   provider = "prisma-client-js"
 }
 
-// Define the Profile model (assuming you have a Profile table)
-model Profile {
-  id          String      @id @default(auto()) @map("_id") @db.ObjectId
-  name        String
-  email       String      @unique
-  age         Int?
-  created_at  DateTime    @default(now())
-  educations  Education[]
-  skills      Skill[]
-  references  Reference[]
-  internships Internship[]
-  createdAt        DateTime @default(now())
-  updatedAt        DateTime @updatedAt
+// Auth model
+model Auth {
+  id                String   @id @default(cuid())
+  name              String
+  email             String   @unique
+  mobile            String   @unique
+  username          String   @unique
+  password          String
+  is_verified       Boolean  @default(false)
+  verification_code String?
+  profile           Profile? @relation(fields: [profileId], references: [id])
+  profileId         String?  @db.ObjectId
+  createdAt         DateTime @default(now())
+  updatedAt         DateTime @updatedAt
 }
 
-// Define the Education model
-model Education {
-  id          String   @id @default(auto()) @map("_id") @db.ObjectId
+// Profile model
+model Profile {
+  id                  String                @id @default(cuid())
+  user                Auth                  @relation(fields: [userId], references: [id])
+  userId             String                @db.ObjectId
+  current_address     String?
+  permanent_address   String?
+  designation         String?
+  summary             String?
+  language            String?
+  is_experience       Boolean?
+  linkedin            String?
+  github              String?
+  portfolio_url       String?
+  experiences         Experience[]
+  projects            Project[]
+  educations          Education[]
+  skills              Skill[]
+  references          Reference[]
+  internships         InternApprenticeship[]
+  createdAt           DateTime @default(now())
+  updatedAt           DateTime @updatedAt
+}
+
+// Experience model
+model Experience {
+  id          String   @id @default(cuid())
+  company_name String
   profile     Profile  @relation(fields: [profileId], references: [id])
   profileId   String   @db.ObjectId
-  qualification String
-  fromDate    DateTime
-  toDate      DateTime
-  collegeName String
-  createdAt        DateTime @default(now())
-  updatedAt        DateTime @updatedAt
+  from_date   DateTime
+  to_date     DateTime?
+  description String?
+  role        String
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
 }
 
-// Define the Skill model
+// Project model
+model Project {
+  id          String   @id @default(cuid())
+  name        String
+  role        String
+  description String?
+  from_date   DateTime
+  to_date     DateTime?
+  profile     Profile  @relation(fields: [profileId], references: [id])
+  profileId   String   @db.ObjectId
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+}
+
+// Education model
+model Education {
+  id          String   @id @default(cuid())
+  name        String
+  from_date   DateTime
+  to_date     DateTime
+  college_name String
+  profile     Profile  @relation(fields: [profileId], references: [id])
+  profileId   String   @db.ObjectId
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+}
+
+// Skill model
 model Skill {
-  id                String   @id @default(auto()) @map("_id") @db.ObjectId
+  id                String   @id @default(cuid())
+  front_end         String
+  back_end          String
+  database_end      String
+  version_control    String
+  project_management String
+  other             String?
+  description       String
   profile           Profile  @relation(fields: [profileId], references: [id])
-  profileId        String   @db.ObjectId
-  frontEnd         String
-  backEnd          String
-  databaseEnd      String
-  versionControl    String
-  projectManagement String
-  description      String
-  other            String?
-  createdAt        DateTime @default(now())
-  updatedAt        DateTime @updatedAt
+  profileId         String   @db.ObjectId
+  createdAt         DateTime @default(now())
+  updatedAt         DateTime @updatedAt
 }
 
-// Define the Reference model
+// Reference model
 model Reference {
-  id        String   @id @default(auto()) @map("_id") @db.ObjectId
+  id        String   @id @default(cuid())
   profile   Profile  @relation(fields: [profileId], references: [id])
   profileId String   @db.ObjectId
   name      String
   role      String
   email     String
   phone     String
-  createdAt        DateTime @default(now())
-  updatedAt        DateTime @updatedAt
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
 }
 
-// Define the Internship model
-model Internship {
-  id          String   @id @default(auto()) @map("_id") @db.ObjectId
+// InternApprenticeship model
+model InternApprenticeship {
+  id          String   @id @default(cuid())
   profile     Profile  @relation(fields: [profileId], references: [id])
   profileId   String   @db.ObjectId
-  companyName String
+  company_name String
   role        String
-  fromDate    DateTime
-  toDate      DateTime
+  from_date   DateTime
+  to_date     DateTime
   description String
-  createdAt        DateTime @default(now())
-  updatedAt        DateTime @updatedAt
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
 }
