@@ -47,10 +47,10 @@ const referenceSchema = new mongoose.Schema({
 
 const internApprendiceshipSchema = new mongoose.Schema({
     profile: { type: Schema.Types.ObjectId, ref: 'Profile', required: true },
-    companyName: { type: String, required: true },
+    company_name: { type: String, required: true },
     role: { type: String, required: true },
-    fromDate: { type: Date, required: true },
-    toDate: { type: Date, required: true },
+    from_date: { type: Date, required: true },
+    to_date: { type: Date, required: true },
     description: { type: String, required: true },
 },{timestamps:true});
 
@@ -61,4 +61,4 @@ const Skill = model("Skill",skillSchema)
 const InternApprendiceship = model("InternApprendiceship",internApprendiceshipSchema)
 const Reference = model("Reference",referenceSchema)
 
-export {Experience}
+export {Experience,Project,Education,Skill,InternApprendiceship,Reference}
