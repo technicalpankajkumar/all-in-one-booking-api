@@ -21,16 +21,16 @@ model Auth {
   password          String
   is_verified       Boolean  @default(false)
   verification_code String?
-  createdAt         DateTime @default(now())
-  updatedAt         DateTime @updatedAt
+  created_at         DateTime @default(now())
+  updated_at         DateTime @updatedAt
   profile           Profile?
 }
 
 // Profile model
 model Profile {
   id                  String                @id @default(cuid()) @map("_id")
-  authId              String                @unique
-  Auth                Auth                 @relation(fields: [authId], references: [id])
+  auth_id              String                @unique
+  Auth                Auth                 @relation(fields: [auth_id], references: [id])
   current_address     String?
   permanent_address   String?
   designation         String?
@@ -46,8 +46,8 @@ model Profile {
   skills              Skill[]
   references          Reference[]
   internships         InternApprenticeship[]
-  createdAt           DateTime @default(now())
-  updatedAt           DateTime @updatedAt
+  created_at           DateTime @default(now())
+  updated_at           DateTime @updatedAt
 }
 
 // Experience model
@@ -55,13 +55,13 @@ model Experience {
   id          String   @id @default(cuid()) @map("_id")
   company_name String
   profile     Profile  @relation(fields: [profileId], references: [id])
-  profileId   String   @db.ObjectId
+  profile_id   String   @db.ObjectId
   from_date   DateTime
   to_date     DateTime?
   description String?
   role        String
-  createdAt   DateTime @default(now())
-  updatedAt   DateTime @updatedAt
+  created_at   DateTime @default(now())
+  updated_at   DateTime @updatedAt
 }
 
 // Project model
@@ -73,9 +73,9 @@ model Project {
   from_date   DateTime
   to_date     DateTime?
   profile     Profile  @relation(fields: [profileId], references: [id])
-  profileId   String   @db.ObjectId
-  createdAt   DateTime @default(now())
-  updatedAt   DateTime @updatedAt
+  profile_id   String   @db.ObjectId
+  created_at   DateTime @default(now())
+  updated_at   DateTime @updatedAt
 }
 
 // Education model
@@ -86,9 +86,9 @@ model Education {
   to_date     DateTime
   college_name String
   profile     Profile  @relation(fields: [profileId], references: [id])
-  profileId   String   @db.ObjectId
-  createdAt   DateTime @default(now())
-  updatedAt   DateTime @updatedAt
+  profile_id   String   @db.ObjectId
+  created_at   DateTime @default(now())
+  updated_at   DateTime @updatedAt
 }
 
 // Skill model
@@ -102,34 +102,34 @@ model Skill {
   other             String?
   description       String
   profile           Profile  @relation(fields: [profileId], references: [id])
-  profileId         String   @db.ObjectId
-  createdAt         DateTime @default(now())
-  updatedAt         DateTime @updatedAt
+  profile_id         String   @db.ObjectId
+  created_at         DateTime @default(now())
+  updated_at         DateTime @updatedAt
 }
 
 // Reference model
 model Reference {
   id        String   @id @default(cuid())  @map("_id")
   profile   Profile  @relation(fields: [profileId], references: [id])
-  profileId String   @db.ObjectId
+  profile_id String   @db.ObjectId
   name      String
   role      String
   email     String
   phone     String
-  createdAt DateTime @default(now())
-  updatedAt DateTime @updatedAt
+  created_at DateTime @default(now())
+  updated_at DateTime @updatedAt
 }
 
 // InternApprenticeship model
 model InternApprenticeship {
   id          String   @id @default(cuid())   @map("_id")
   profile     Profile  @relation(fields: [profileId], references: [id])
-  profileId   String   @db.ObjectId
+  profile_id   String   @db.ObjectId
   company_name String
   role        String
   from_date   DateTime
   to_date     DateTime
   description String
-  createdAt   DateTime @default(now())
-  updatedAt   DateTime @updatedAt
+  created_at   DateTime @default(now())
+  updated_at   DateTime @updatedAt
 }
