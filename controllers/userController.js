@@ -1,4 +1,4 @@
-import { db } from "../config/db";
+import { db } from "../config/db.js";
 
 // Update User Profile
 export async function updateProfile(req, res) {

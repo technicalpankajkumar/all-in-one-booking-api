@@ -11,8 +11,14 @@ export async function register(req, res) {
     try {
         const hashedPassword = await hash(password, 10);
         
+        const exitsEmail = await db.Auth.findUnique({ where: { email } })
+
+        if(exitsEmail){
+            return res.status(400).json({ message: 'User email already exist.' });
+        }
+
         // Create a new user
-        const user = await db.auth.create({
+        const user = await db.Auth.create({
             data: {
                 name,
                 email,
@@ -32,11 +38,11 @@ export async function register(req, res) {
         // Update user with profile reference
         await db.auth.update({
             where: { id: user.id },
-            data: { profileId: profile.id }, // Assuming profileId is the foreign key in Auth
+            data: { profile_id: profile.id }, // Assuming profileId is the foreign key in Auth
         });
 
         // Send verification email
-        sendVerificationEmail(user.email, password); // Send the generated password
+        // sendVerificationEmail(user.email, password); // Send the generated password
 
         res.status(201).json({ message: 'User  registered successfully. Please verify your email.' });
     } catch (error) {
