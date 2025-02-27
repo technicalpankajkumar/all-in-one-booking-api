@@ -54,7 +54,7 @@ model Profile {
 model Experience {
   id          String   @id @default(cuid()) @map("_id")
   company_name String
-  profile     Profile  @relation(fields: [profileId], references: [id])
+  profile     Profile  @relation(fields: [profile_id], references: [id])
   profile_id   String   @db.ObjectId
   from_date   DateTime
   to_date     DateTime?
@@ -72,7 +72,7 @@ model Project {
   description String?
   from_date   DateTime
   to_date     DateTime?
-  profile     Profile  @relation(fields: [profileId], references: [id])
+  profile     Profile  @relation(fields: [profile_id], references: [id])
   profile_id   String   @db.ObjectId
   created_at   DateTime @default(now())
   updated_at   DateTime @updatedAt
@@ -85,7 +85,7 @@ model Education {
   from_date   DateTime
   to_date     DateTime
   college_name String
-  profile     Profile  @relation(fields: [profileId], references: [id])
+  profile     Profile  @relation(fields: [profile_id], references: [id])
   profile_id   String   @db.ObjectId
   created_at   DateTime @default(now())
   updated_at   DateTime @updatedAt
@@ -101,7 +101,7 @@ model Skill {
   project_management String
   other             String?
   description       String
-  profile           Profile  @relation(fields: [profileId], references: [id])
+  profile           Profile  @relation(fields: [profile_id], references: [id])
   profile_id         String   @db.ObjectId
   created_at         DateTime @default(now())
   updated_at         DateTime @updatedAt
@@ -110,7 +110,7 @@ model Skill {
 // Reference model
 model Reference {
   id        String   @id @default(cuid())  @map("_id")
-  profile   Profile  @relation(fields: [profileId], references: [id])
+  profile   Profile  @relation(fields: [profile_id], references: [id])
   profile_id String   @db.ObjectId
   name      String
   role      String
@@ -123,7 +123,7 @@ model Reference {
 // InternApprenticeship model
 model InternApprenticeship {
   id          String   @id @default(cuid())   @map("_id")
-  profile     Profile  @relation(fields: [profileId], references: [id])
+  profile     Profile  @relation(fields: [profile_id], references: [id])
   profile_id   String   @db.ObjectId
   company_name String
   role        String
