@@ -1,0 +1,83 @@
+// schema.prisma
+
+// Define the datasource for MongoDB
+datasource db {
+  provider = "mongodb"
+  url      = env("DATABASE_URL") // Set your MongoDB connection string in the .env file
+}
+
+// Define the generator for Prisma Client
+generator client {
+  provider = "prisma-client-js"
+}
+
+// Define the Profile model (assuming you have a Profile table)
+model Profile {
+  id          String      @id @default(auto()) @map("_id") @db.ObjectId
+  name        String
+  email       String      @unique
+  age         Int?
+  created_at  DateTime    @default(now())
+  educations  Education[]
+  skills      Skill[]
+  references  Reference[]
+  internships Internship[]
+  createdAt        DateTime @default(now())
+  updatedAt        DateTime @updatedAt
+}
+
+// Define the Education model
+model Education {
+  id          String   @id @default(auto()) @map("_id") @db.ObjectId
+  profile     Profile  @relation(fields: [profileId], references: [id])
+  profileId   String   @db.ObjectId
+  qualification String
+  fromDate    DateTime
+  toDate      DateTime
+  collegeName String
+  createdAt        DateTime @default(now())
+  updatedAt        DateTime @updatedAt
+}
+
+// Define the Skill model
+model Skill {
+  id                String   @id @default(auto()) @map("_id") @db.ObjectId
+  profile           Profile  @relation(fields: [profileId], references: [id])
+  profileId        String   @db.ObjectId
+  frontEnd         String
+  backEnd          String
+  databaseEnd      String
+  versionControl    String
+  projectManagement String
+  description      String
+  other            String?
+  createdAt        DateTime @default(now())
+  updatedAt        DateTime @updatedAt
+}
+
+// Define the Reference model
+model Reference {
+  id        String   @id @default(auto()) @map("_id") @db.ObjectId
+  profile   Profile  @relation(fields: [profileId], references: [id])
+  profileId String   @db.ObjectId
+  name      String
+  role      String
+  email     String
+  phone     String
+  createdAt        DateTime @default(now())
+  updatedAt        DateTime @updatedAt
+}
+
+// Define the Internship model
+model Internship {
+  id          String   @id @default(auto()) @map("_id") @db.ObjectId
+  profile     Profile  @relation(fields: [profileId], references: [id])
+  profileId   String   @db.ObjectId
+  companyName String
+  role        String
+  fromDate    DateTime
+  toDate      DateTime
+  description String
+  createdAt        DateTime @default(now())
+  updatedAt        DateTime @updatedAt
+}
