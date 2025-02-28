@@ -13,33 +13,33 @@ generator client {
 
 // Auth model
 model Auth {
-  id                String   @id @default(cuid()) @map("_id")
+  id                String   @id @default(cuid()) @map("_id") @db.ObjectId
   name              String
   email             String   @unique
   mobile            String   @unique
   username          String   @unique
   password          String
   is_verified       Boolean  @default(false)
-  verification_code String  @default("")
-  created_at         DateTime @default(now())
-  updated_at         DateTime @updatedAt
+  verification_code String   @default("")
+  created_at        DateTime @default(now())
+  updated_at        DateTime @updatedAt
   profile           Profile?
 }
 
 // Profile model
 model Profile {
-  id                  String                @id @default(cuid()) @map("_id")
-  auth_id              String                @unique
-  Auth                Auth                 @relation(fields: [auth_id], references: [id])
-  current_address     String  @default("")
-  permanent_address   String  @default("")
-  designation         String  @default("")
-  summary             String  @default("")
+  id                  String                @id @default(cuid()) @map("_id") @db.ObjectId
+  auth_id             String                @unique @db.ObjectId
+  Auth                Auth                  @relation(fields: [auth_id], references: [id])
+  current_address     String?  @default("")
+  permanent_address   String?  @default("")
+  designation         String?  @default("")
+  summary             String?  @default("")
   language            String[]  @default([])
   is_experience       Boolean @default(false)
-  linkedin            String  @default("")
-  github              String  @default("")
-  portfolio_url       String  @default("")
+  linkedin            String?  @default("")
+  github              String?  @default("")
+  portfolio_url       String?  @default("")
   experiences         Experience[]
   projects            Project[]
   educations          Education[]
@@ -56,10 +56,10 @@ model Experience {
   company_name String
   profile     Profile  @relation(fields: [profile_id], references: [id])
   profile_id   String   @db.ObjectId
-  from_date   DateTime
-  to_date     DateTime?
-  description String?
-  role        String
+  from_date   DateTime  @default(now())
+  to_date     DateTime? 
+  description String?   @default("")
+  role        String    
   created_at   DateTime @default(now())
   updated_at   DateTime @updatedAt
 }
@@ -67,10 +67,10 @@ model Experience {
 // Project model
 model Project {
   id          String   @id @default(cuid()) @map("_id")
-  name        String
-  role        String
-  description String?
-  from_date   DateTime
+  name        String   
+  role        String   
+  description String?  @default("")
+  from_date   DateTime  
   to_date     DateTime?
   profile     Profile  @relation(fields: [profile_id], references: [id])
   profile_id   String   @db.ObjectId
@@ -94,15 +94,15 @@ model Education {
 // Skill model
 model Skill {
   id                String   @id @default(cuid()) @map("_id")
-  front_end         String
-  back_end          String
-  database_end      String
-  version_control    String
-  project_management String
-  other             String?
-  description       String
-  profile           Profile  @relation(fields: [profile_id], references: [id])
+  front_end         String[]?  @default([])
+  back_end          String[]?  @default([])
+  database_end      String[]?  @default([])
+  version_control    String[]? @default([])
+  project_management String[]? @default([])
+  other             String[]?  @default([])
+  description       String?    @default("")
   profile_id         String   @db.ObjectId
+  profile           Profile  @relation(fields: [profile_id], references: [id])
   created_at         DateTime @default(now())
   updated_at         DateTime @updatedAt
 }
@@ -123,13 +123,13 @@ model Reference {
 // InternApprenticeship model
 model InternApprenticeship {
   id          String   @id @default(cuid())   @map("_id")
-  profile     Profile  @relation(fields: [profile_id], references: [id])
   profile_id   String   @db.ObjectId
+  profile     Profile  @relation(fields: [profile_id], references: [id])
   company_name String
   role        String
   from_date   DateTime
   to_date     DateTime
-  description String
+  description  String? @default("")
   created_at   DateTime @default(now())
   updated_at   DateTime @updatedAt
 }
