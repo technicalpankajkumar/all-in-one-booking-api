@@ -1,6 +1,8 @@
 import { hash, compare } from 'bcryptjs';
+import 'dotenv/config.js'
 import jwt from 'jsonwebtoken';
-import { createTransport } from 'nodemailer';
+import ejs from 'ejs'
+import path from 'path'
 import { db } from '../config/db.js';
 import { CatchAsyncError } from '../utils/catchAsyncError.js';
 import ErrorHandler from '../utils/errorHandler.js';
@@ -20,9 +22,6 @@ export const register = CatchAsyncError(async (req, res,next)=> {
         //activation code sent user email
         const activationCode = response.activation_code;
         const data = { user: { name , email }, activationCode };
-
-        // render html file with ejs template engine
-        await ejs.renderFile(path.join(__dirname, '../mail_templates/activationMail.ejs'), data);
 
         try {
             await sendMail({
@@ -53,12 +52,13 @@ export const activateUser = CatchAsyncError(async (req,res, next)=>{
         if (newUser.activation_code !== code) {
             return next(new ErrorHandler("Invalid activation code", 400))
         }
+
         
         const { name, email, mobile } = newUser.user;
         const password = generateRandomPassword(); // Generate a random password
-        const username = generateUniqueUsername(name, email); // Generate a unique username
-
-        const hashedPassword = await hash(password);
+        const username = await generateUniqueUsername(name, email); // Generate a unique username
+        
+        const hashedPassword = await hash(password,10);
 
         // Create a new user
         const user = await db.Auth.create({
@@ -81,7 +81,7 @@ export const activateUser = CatchAsyncError(async (req,res, next)=>{
                 template: "welcomeMail.ejs", // this file name of email template with ejs template extension
                 data,
             });
-            res.status(201).send({ message: "Account registered successfully!"})
+            res.status(201).send({ message: "Account successfully created!"})
         } catch (error ) {
             return next(new ErrorHandler(error.message, 400))
         }
@@ -118,19 +118,19 @@ export const login  = CatchAsyncError( async (req, res,next)=> {
 })
 
 // Function to generate a unique username
-const generateUniqueUsername = CatchAsyncError( async (name, email) => {
+const generateUniqueUsername = async (name, email) => {
     const baseUsername = `${name.toLowerCase().replace(/\s+/g, '')}${email.split('@')[0]}`;
     let username = baseUsername;
     let count = 1;
 
     // Check for uniqueness in the database
-    while (await db.auth.findUnique({ where: { username } })) {
+    while (await db.Auth.findUnique({ where: { username } })) {
         username = `${baseUsername}${count}`;
         count++;
     }
 
     return username;
-});
+};
 
 // Function to generate a random password
 const generateRandomPassword = (length = 12) => {

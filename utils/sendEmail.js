@@ -3,12 +3,17 @@ import "dotenv/config"
 import nodemailer from 'nodemailer';
 import ejs from 'ejs';
 import path from 'path';
+import { fileURLToPath } from "url";
+import { CatchAsyncError } from "./catchAsyncError.js";
+// Get the current directory name
+const __filename = fileURLToPath(import.meta.url);
+const __dirname = path.dirname(__filename);
 
-const sendMail = async (options)=>{
+const sendMail = CatchAsyncError(async (options)=>{
     const transporter = nodemailer.createTransport({
         host:process.env.SMTP_HOST,
         port: parseInt(process.env.SMTP_PORT || '587'),
-        service:process.env.SMTP_SERVICE,
+        // service:process.env.SMTP_SERVICE,
         auth:{
             user:process.env.SMTP_MAIL,
             pass:process.env.SMTP_PASSWORD
@@ -29,6 +34,6 @@ const sendMail = async (options)=>{
         html,
     }
     await transporter.sendMail(mailOptions);
-}
+})
 
 export default sendMail;
