@@ -72,11 +72,11 @@ export const activateUser = CatchAsyncError(async (req,res, next)=>{
         });
         
         // successfully account created welcome email send 
-        const data = { user: { name:user.name || name } };
+        const data = { user: { name, password} };
 
         try {
             await sendMail({
-                email: user.email || email,
+                email: email,
                 subject: "Your account successfully activated !",
                 template: "welcomeMail.ejs", // this file name of email template with ejs template extension
                 data,
