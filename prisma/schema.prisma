@@ -13,7 +13,7 @@ generator client {
 
 // Auth model
 model Auth {
-  id                String   @id @default(cuid()) @map("_id") @db.ObjectId
+  id                String   @id @default(auto()) @map("_id") @db.ObjectId
   name              String
   email             String   @unique
   mobile            String   @unique
@@ -28,7 +28,7 @@ model Auth {
 
 // Profile model
 model Profile {
-  id                  String                @id @default(cuid()) @map("_id") @db.ObjectId
+  id                  String                @id @default(auto()) @map("_id") @db.ObjectId
   auth_id             String                @unique @db.ObjectId
   Auth                Auth                  @relation(fields: [auth_id], references: [id])
   current_address     String?  @default("")

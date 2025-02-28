@@ -2,20 +2,63 @@ import { hash, compare } from 'bcryptjs';
 import jwt from 'jsonwebtoken';
 import { createTransport } from 'nodemailer';
 import { db } from '../config/db.js';
+import { CatchAsyncError } from '../utils/catchAsyncError.js';
+import ErrorHandler from '../utils/errorHandler.js';
+import sendMail from '../utils/sendEmail.js';
 
-export async function register(req, res) {
+export const register = CatchAsyncError(async (req, res,next)=> {
     const { name, email, mobile } = req.body;
-    const password = generateRandomPassword(); // Generate a random password
-    const username = await generateUniqueUsername(name, email); // Generate a unique username
 
     try {
-        const hashedPassword = await hash(password, 10);
-        
-        const exitsEmail = await db.Auth.findUnique({ where: { email } })
-
+        const exitsEmail = await db.Auth.findFirst({ where: { OR: [ { email }, { mobile } ] } })
         if(exitsEmail){
-            return res.status(400).json({ message: 'User email already exist.' });
+            return res.status(400).send({ message: 'User email or mobile already exist.' });
         }
+ 
+        const response = createActivationToken({name,email,mobile});
+
+        //activation code sent user email
+        const activationCode = response.activation_code;
+        const data = { user: { name , email }, activationCode };
+
+        // render html file with ejs template engine
+        await ejs.renderFile(path.join(__dirname, '../mail_templates/activationMail.ejs'), data);
+
+        try {
+            await sendMail({
+                email: email,
+                subject: "Activate you account",
+                template: "activationMail.ejs", // this file name of email template with ejs template extension
+                data,
+            })
+            res.status(201).send({
+                "success": true,
+                "message": `Please check your email ${email} to activate your account`,
+                "token": response.token,
+            });
+        } catch (error) {
+            return next(new ErrorHandler(error.message, 400))
+        }
+    } catch (error) {
+        return next(new ErrorHandler(error.message, 400))
+    }
+});
+
+
+export const activateUser = CatchAsyncError(async (req,res, next)=>{
+    const { token, code } = req.body;
+    try {
+        const newUser = jwt.verify( token, process.env.JWT_SECRET);
+        
+        if (newUser.activation_code !== code) {
+            return next(new ErrorHandler("Invalid activation code", 400))
+        }
+        
+        const { name, email, mobile } = newUser.user;
+        const password = generateRandomPassword(); // Generate a random password
+        const username = generateUniqueUsername(name, email); // Generate a unique username
+
+        const hashedPassword = await hash(password);
 
         // Create a new user
         const user = await db.Auth.create({
@@ -27,66 +70,55 @@ export async function register(req, res) {
                 username,
             },
         });
+        
+        // successfully account created welcome email send 
+        const data = { user: { name:user.name || name } };
 
-        // Create a new profile for the user
-        const profile = await db.profile.create({
-            data: {
-                userId: user.id, // Assuming userId is the foreign key in Profile
-            },
-        });
+        try {
+            await sendMail({
+                email: user.email || email,
+                subject: "Your account successfully activated !",
+                template: "welcomeMail.ejs", // this file name of email template with ejs template extension
+                data,
+            });
+            res.status(201).send({ message: "Account registered successfully!"})
+        } catch (error ) {
+            return next(new ErrorHandler(error.message, 400))
+        }
 
-        // Update user with profile reference
-        await db.auth.update({
-            where: { id: user.id },
-            data: { profile_id: profile.id }, // Assuming profileId is the foreign key in Auth
-        });
-
-        // Send verification email
-        // sendVerificationEmail(user.email, password); // Send the generated password
-
-        res.status(201).json({ message: 'User  registered successfully. Please verify your email.' });
     } catch (error) {
-        res.status(500).json({ error: error.message });
+        return next(new ErrorHandler(error.message, 400))
     }
-}
+})
 
 // Login User
-export async function login(req, res) {
-    const { emailOrMobile, password } = req.body;
+export const login  = CatchAsyncError( async (req, res,next)=> {
+    const { login, password } = req.body;
     try {
-        const user = await db.auth.findUnique({
+        const user = await db.Auth.findFirst({
             where: {
                 OR: [
-                    { email: emailOrMobile },
-                    { mobile: emailOrMobile },
-                    { username: emailOrMobile },
+                    { email: login },
+                    { mobile: login },
+                    { username: login },
                 ],
             },
         });
 
-        if (!user) return res.status(404).json({ message: 'User  not found' });
+        if (!user) return res.status(404).send({ message: 'User  not found' });
 
         const isMatch = await compare(password, user.password);
-        if (!isMatch) return res.status(400).json({ message: 'Invalid credentials' });
+        if (!isMatch) return res.status(400).send({ message: 'Invalid credentials' });
 
         const token = jwt.sign({ id: user.id }, process.env.JWT_SECRET, { expiresIn: '1h' });
-        res.json({ token, user });
+        res.send({ token, name : user.name , email :user.email , mobile : user.mobile });
     } catch (error) {
-        res.status(500).json({ error: error.message });
+        return next(new ErrorHandler(error.message, 400))
     }
-}
-// Function to generate a random password
-const generateRandomPassword = (length = 12) => {
-    const charset = "abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789!@#$%^&*()_+";
-    let password = "";
-    for (let i = 0; i < length; i++) {
-        const randomIndex = Math.floor(Math.random() * charset.length);
-        password += charset[randomIndex];
-    }
-    return password;
-};
+})
+
 // Function to generate a unique username
-const generateUniqueUsername = async (name, email) => {
+const generateUniqueUsername = CatchAsyncError( async (name, email) => {
     const baseUsername = `${name.toLowerCase().replace(/\s+/g, '')}${email.split('@')[0]}`;
     let username = baseUsername;
     let count = 1;
@@ -98,29 +130,23 @@ const generateUniqueUsername = async (name, email) => {
     }
 
     return username;
-};
-// Send Verification Email
-const sendVerificationEmail = (email, verificationCode) => {
-    const transporter = createTransport({
-        service: 'gmail',
-        auth: {
-            user: process.env.EMAIL_USER,
-            pass: process.env.EMAIL_PASS,
-        },
-    });
+});
 
-    const mailOptions = {
-        from: process.env.EMAIL_USER,
-        to: email,
-        subject: 'Email Verification',
-        text: `Your verification code is ${verificationCode}`,
-    };
-
-    transporter.sendMail(mailOptions, (error, info) => {
-        if (error) {
-            console.error('Error sending email:', error);
-        } else {
-            console.log('Email sent:', info.response);
-        }
-    });
+// Function to generate a random password
+const generateRandomPassword = (length = 12) => {
+    const charset = "abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789!@#$%^&*()_+";
+    let password = "";
+    for (let i = 0; i < length; i++) {
+        const randomIndex = Math.floor(Math.random() * charset.length);
+        password += charset[randomIndex];
+    }
+    return password;
 };
+
+// email activation token
+export const createActivationToken = (user) => {
+    const activation_code = Math.floor(1000 + Math.random() * 9000).toString();
+    const token = jwt.sign({ user, activation_code }, process.env.JWT_SECRET , { expiresIn: "5m" });
+
+    return { token, activation_code }
+}

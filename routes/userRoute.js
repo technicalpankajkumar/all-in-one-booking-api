@@ -1,8 +1,9 @@
 import { Router } from 'express';
-import { updateProfile } from '../controllers/userController.js';
+import { updateProfile , createProfile} from '../controllers/userController.js';
 import authMiddleware from '../middlewares/authMiddleware.js';
-const router = Router();
+const userRoute = Router();
 
-router.put('/profile', authMiddleware, updateProfile);
+userRoute.post('/profile', authMiddleware, createProfile);
+userRoute.put('/profile', authMiddleware, updateProfile);
 
-export default router;
+export default userRoute;
