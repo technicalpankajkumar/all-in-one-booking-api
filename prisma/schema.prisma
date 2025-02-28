@@ -94,12 +94,12 @@ model Education {
 // Skill model
 model Skill {
   id                String   @id @default(cuid()) @map("_id")
-  front_end         String[]?  @default([])
-  back_end          String[]?  @default([])
-  database_end      String[]?  @default([])
-  version_control    String[]? @default([])
-  project_management String[]? @default([])
-  other             String[]?  @default([])
+  front_end         String[]  @default([])
+  back_end          String[]  @default([])
+  database_end      String[]  @default([])
+  version_control    String[] @default([])
+  project_management String[] @default([])
+  other             String[]  @default([])
   description       String?    @default("")
   profile_id         String   @db.ObjectId
   profile           Profile  @relation(fields: [profile_id], references: [id])
