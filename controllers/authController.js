@@ -10,7 +10,6 @@ import sendMail from '../utils/sendEmail.js';
 
 export const register = CatchAsyncError(async (req, res,next)=> {
     const { name, email, mobile } = req.body;
-
     try {
         const exitsEmail = await db.Auth.findFirst({ where: { OR: [ { email }, { mobile } ] } })
         if(exitsEmail){
@@ -18,9 +17,11 @@ export const register = CatchAsyncError(async (req, res,next)=> {
         }
  
         const response = createActivationToken({name,email,mobile});
+        console.log(response,"response")
 
         //activation code sent user email
         const activationCode = response.activation_code;
+        
         const data = { user: { name , email }, activationCode };
 
         try {
@@ -54,9 +55,10 @@ export const activateUser = CatchAsyncError(async (req,res, next)=>{
         }
 
         
-        const { name, email, mobile } = newUser.user;
-        const password = generateRandomPassword(); // Generate a random password
-        const username = await generateUniqueUsername(name, email); // Generate a unique username
+        const { name, email,mobile } = newUser.user;
+        const password = generateRandomPassword(); 
+        const username = await generateUniqueUsername(name, email); 
+        // console.log(us)
         
         const hashedPassword = await hash(password,10);
 
@@ -66,6 +68,7 @@ export const activateUser = CatchAsyncError(async (req,res, next)=>{
                 name,
                 email,
                 mobile,
+                verification_code:code,
                 password: hashedPassword,
                 username,
             },
@@ -146,7 +149,7 @@ const generateRandomPassword = (length = 12) => {
 // email activation token
 export const createActivationToken = (user) => {
     const activation_code = Math.floor(1000 + Math.random() * 9000).toString();
-    const token = jwt.sign({ user, activation_code }, process.env.JWT_SECRET , { expiresIn: "5m" });
+    const token = jwt.sign({ user, activation_code }, process.env.JWT_SECRET , { expiresIn: "1h" });
 
     return { token, activation_code }
 }
