@@ -6,6 +6,7 @@ import { responseMiddleware } from './middlewares/responseMiddleware.js';
 import { errorMiddleware } from './middlewares/errorMiddleware.js';
 import cookieParser from 'cookie-parser';
 import cors from 'cors'
+import { PrismaClient } from '@prisma/client/extension';
 export const app = express();
 
 //body parser
