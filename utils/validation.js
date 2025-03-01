@@ -1,11 +1,10 @@
-import { body, validationResult } from 'express-validator';
+import { body } from 'express-validator';
 
 // Validation for User Registration
 const registerValidation = [
     body('name').notEmpty().withMessage('Name is required'),
     body('email').isEmail().withMessage('Invalid email format').normalizeEmail(),
     body('mobile').isMobilePhone().withMessage('Invalid mobile number').notEmpty(),
-    body('password').isLength({ min: 6 }).withMessage('Password must be at least 6 characters long'),
 ];
 
 // Validation for User Login
@@ -25,18 +24,9 @@ const profileUpdateValidation = [
     body('summary').optional().notEmpty().withMessage('Summary cannot be empty'),
 ];
 
-// Middleware to handle validation errors
-const validate = (req, res, next) => {
-    const errors = validationResult(req);
-    if (!errors.isEmpty()) {
-        return res.status(400).json({ errors: errors.array() });
-    }
-    next();
-};
 
-export default {
+export  {
     registerValidation,
     loginValidation,
     profileUpdateValidation,
-    validate,
 };

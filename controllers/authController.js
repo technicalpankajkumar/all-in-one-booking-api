@@ -1,18 +1,18 @@
 import { hash, compare } from 'bcryptjs';
 import 'dotenv/config.js'
 import jwt from 'jsonwebtoken';
-import ejs from 'ejs'
-import path from 'path'
 import { db } from '../config/db.js';
 import { CatchAsyncError } from '../utils/catchAsyncError.js';
 import ErrorHandler from '../utils/errorHandler.js';
 import sendMail from '../utils/sendEmail.js';
 
 export const register = CatchAsyncError(async (req, res,next)=> {
+    
     const { name, email, mobile } = req.body;
-
+    
     try {
-        const exitsEmail = await db.Auth.findFirst({ where: { OR: [ { email }, { mobile } ] } })
+        const exitsEmail = await db.auth.findFirst({ where: { OR: [ { email }, { mobile } ] } })
+
         if(exitsEmail){
             return res.status(400).send({ message: 'User email or mobile already exist.' });
         }
@@ -24,13 +24,13 @@ export const register = CatchAsyncError(async (req, res,next)=> {
         const data = { user: { name , email }, activationCode };
 
         try {
-            await sendMail({
+            sendMail({
                 email: email,
                 subject: "Activate you account",
                 template: "activationMail.ejs", // this file name of email template with ejs template extension
                 data,
             })
-            res.status(201).send({
+            return res.status(201).send({
                 "success": true,
                 "message": `Please check your email ${email} to activate your account`,
                 "token": response.token,
@@ -61,7 +61,7 @@ export const activateUser = CatchAsyncError(async (req,res, next)=>{
         const hashedPassword = await hash(password,10);
 
         // Create a new user
-        const user = await db.Auth.create({
+        await db.auth.create({
             data: {
                 name,
                 email,
@@ -75,7 +75,7 @@ export const activateUser = CatchAsyncError(async (req,res, next)=>{
         const data = { user: { name, password} };
 
         try {
-            await sendMail({
+             sendMail({
                 email: email,
                 subject: "Your account successfully activated !",
                 template: "welcomeMail.ejs", // this file name of email template with ejs template extension
