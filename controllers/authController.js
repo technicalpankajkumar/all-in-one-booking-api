@@ -122,11 +122,12 @@ export const login  = CatchAsyncError( async (req, res,next)=> {
 
 // Function to generate a unique username
 const generateUniqueUsername = async (name, email) => {
-    const baseUsername = `${name.toLowerCase().replace(/\s+/g, '')}${email.split('@')[0]}`;
+    const randomString = Math.random().toString(36).substring(2, 5);
+    const baseUsername =  `${name}_${randomString}`;
     let username = baseUsername;
     let count = 1;
 
-    // Check for uniqueness in the database
+
     while (await db.Auth.findUnique({ where: { username } })) {
         username = `${baseUsername}${count}`;
         count++;
