@@ -2,7 +2,6 @@ import express, { json } from 'express';
 import authRoutes from './routes/authRoute.js';
 import userRoutes from './routes/userRoute.js';
 import resumeRoute from './routes/resumeRoute.js';
-import { responseMiddleware } from './middlewares/responseMiddleware.js';
 import { errorMiddleware } from './middlewares/errorMiddleware.js';
 import cookieParser from 'cookie-parser';
 import cors from 'cors'
@@ -30,7 +29,6 @@ app.all("*",(req,res,next)=>{
     const err = new Error(` Route ${req.originalUrl} not found !`);
     err.statusCode = 404;
     next(err)
- });
-// Use the response handler middleware
-app.use(responseMiddleware);
+});
+
 app.use(errorMiddleware)
