@@ -4,6 +4,7 @@ import { validationResult } from "express-validator";
 // Middleware to handle validation errors
 export const validationMiddlewre = (req, res, next) => {
     const errors = validationResult(req);
+
     if (!errors.isEmpty()) {
         // Create an object to hold the errors
         const formattedErrors = {};

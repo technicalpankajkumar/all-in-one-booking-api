@@ -1,4 +1,5 @@
 import { body } from 'express-validator';
+import { emailRegex, mobileRegex } from './regexConstant.js';
 
 // Validation for User Registration
 const registerValidation = [
@@ -9,9 +10,27 @@ const registerValidation = [
 
 // Validation for User Login
 const loginValidation = [
-    body('emailOrMobile').notEmpty().withMessage('Email or mobile is required'),
+    body('login')
+    .notEmpty().withMessage('Email or mobile is required')
+    .custom(value => {
+        if (!emailRegex.test(value) && !mobileRegex.test(value)) {
+            throw new Error('Invalid email or mobile number format');
+        }
+        return true; // If validation passes
+    }),
     body('password').notEmpty().withMessage('Password is required'),
 ];
+
+//validation for change password
+const changePasswordValidation = [ 
+    body('current_password').notEmpty().withMessage('Current password is required'),
+    body('new_password').notEmpty().withMessage('New password is required'),
+    body('confirm_password').notEmpty().withMessage('Confirm password is required').custom((value, { req }) => {
+        if (value !== req.body.new_password) {
+            throw new Error('Confirm password does not match with new password');
+        }
+        return true; // If validation passes
+    })]
 
 // Validation for Profile Update
 const profileUpdateValidation = [
@@ -29,4 +48,5 @@ export  {
     registerValidation,
     loginValidation,
     profileUpdateValidation,
+    changePasswordValidation,
 };
