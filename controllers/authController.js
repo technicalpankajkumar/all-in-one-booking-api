@@ -5,7 +5,6 @@ import { db } from '../config/db.js';
 import { CatchAsyncError } from '../utils/catchAsyncError.js';
 import ErrorHandler from '../utils/errorHandler.js';
 import sendMail from '../utils/sendEmail.js';
-import { decrypt } from 'dotenv';
 
 export const register = CatchAsyncError(async (req, res,next)=> {
     
@@ -43,8 +42,7 @@ export const register = CatchAsyncError(async (req, res,next)=> {
         return next(new ErrorHandler(error.message, 400))
     }
 });
-
-
+// activate user 
 export const activateUser = CatchAsyncError(async (req,res, next)=>{
     const { token, code } = req.body;
     try {
@@ -93,17 +91,18 @@ export const activateUser = CatchAsyncError(async (req,res, next)=>{
         return next(new ErrorHandler(error.message, 400))
     }
 })
-
 // Login User
 export const login  = CatchAsyncError( async (req, res,next)=> {
     const { login, password } = req.body;
+    const match = login?.toLowerCase();
+
     try {
         const user = await db.auth.findFirst({
             where: {
                 OR: [
-                    { email: login },
-                    { mobile: login },
-                    { username: login },
+                    { email: match },
+                    { mobile: match },
+                    { username: match },
                 ],
             },
         });
@@ -122,19 +121,13 @@ export const login  = CatchAsyncError( async (req, res,next)=> {
         return next(new ErrorHandler(error.message, 400))
     }
 })
-
 // Logout User
 export const logout = CatchAsyncError(async (req, res, next) => {
-    // If using JWT, you can simply inform the client to remove the token
-    // Optionally, you can implement a token blacklist here
-    // If you have a token blacklist, you would add the token to the blacklist here
-    // For example:
     const token = req.headers['authorization'].split(' ')[1]; // Get the token from the Authorization header
     await db.tokenBlacklist.create({ token }); // Store the token in the blacklist
     res.clearCookie('token');
     res.send({ message: 'User logged out successfully' });
 });
-
 // change password functionality
 export const changePassword = CatchAsyncError(async (req, res, next)=>{
     const { new_password , current_password} = req.body; // Get the updated user data from the request body
@@ -142,7 +135,6 @@ export const changePassword = CatchAsyncError(async (req, res, next)=>{
 
     try {
         // Check if the old password is correct
-        console.log(current_password,password)
         const isMatch = await compare(current_password, password);
         if (!isMatch) {
             return res.status(401).send('Old password is incorrect');
@@ -162,26 +154,77 @@ export const changePassword = CatchAsyncError(async (req, res, next)=>{
         return next(new ErrorHandler(error.message, 400));
     }
 })
-
 // forget password functionality
 export const forgetPassword = CatchAsyncError(async (req,res,next) => {
     const { email } = req.body; // Get the user's email from the request body
+
+    try{
+        const user = await db.auth.findFirst({ where: { email } });
+        if(!user){
+            return res.status(404).send({ message: 'User not found!' });
+        }
+
+        const password = generateRandomPassword(); // Generate a new password
+        const hashedPassword = await hash(password,10);
+
+        await db.auth.update({
+            where: { id: user.id },
+            data: {
+                password: hashedPassword,
+            },
+        })
+        
+        sendMail({
+            email: email,
+            subject: "New Reset Password",
+            template: "resetPasswordMail.ejs", // this file name of email template with ejs template extension
+            data: { user: { name: user.name ,password }}, // Generate a new password
+        })
+
+        return res.status(200).send({
+            message: "Check your email to keep your new password!"
+        });
+
+    }catch(error){
+        return next(new ErrorHandler(error.message, 400));
+    }
 })
-
-
+// update email or mobile details try to build 
+export const updateEmailMobile=CatchAsyncError(async(req,res,next)=>{
+    const {new_email,new_mobile} = req.body;
+    try{
+        const {id} = req.user;
+        await db.auth.update({
+            where: { id },
+            data: {
+                email: new_email,
+                mobile: new_mobile,
+            },
+        })
+        res.send({ message: 'User details updated successfully'});
+    }catch(error){
+        return next(new ErrorHandler(error.message, 400));
+    }
+})
 // Function to generate a unique username
 const generateUniqueUsername = async (name, email) => {
-    const baseUsername = `${name.toLowerCase().replace(/\s+/g, '')}${email.split('@')[0]}`;
-    let username = baseUsername;
+    // Create a base username from the first few characters of the name and email
+    const baseUsername = `${name?.toLowerCase()?.replace(/\s+/g, '')?.slice(0, 5)}${email.split('@')[0].slice(0, 3)}`;
+    
+    // Ensure the base username is not longer than 8 characters
+    let username = baseUsername.slice(0, 8);
+    // If the base username is less than 8 characters, we need to add random characters
+    while (username.length < 8) {
+        username += Math.random().toString(36).charAt(2); // Append a random character
+    }
     let count = 1;
     // Check for uniqueness in the database
-    while (await db.Auth.findUnique({ where: { username } })) {
-        username = `${baseUsername}${count}`;
+    while (await db.auth.findUnique({ where: { username } })) {
+        username = `${username.slice(0, 7)}${count}`; // Keep the first 7 characters and append the count
         count++;
     }
     return username;
 };
-
 // Function to generate a random password
 const generateRandomPassword = (length = 12) => {
     const charset = "abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789!@#$%^&*()_+";
@@ -192,7 +235,6 @@ const generateRandomPassword = (length = 12) => {
     }
     return password;
 };
-
 // email activation token
 export const createActivationToken = (user) => {
     const activation_code = Math.floor(1000 + Math.random() * 9000).toString();

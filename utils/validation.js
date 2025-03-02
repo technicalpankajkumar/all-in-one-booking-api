@@ -30,7 +30,15 @@ const changePasswordValidation = [
             throw new Error('Confirm password does not match with new password');
         }
         return true; // If validation passes
-    })]
+})]
+
+const forgetPasswordValidation =[
+    body('email')
+        .isEmail().withMessage('Invalid email format') // Check if the email is valid
+        .notEmpty().withMessage('Email cannot be empty') // Ensure the email is not empty
+        .trim() // Trim whitespace from the email
+        .normalizeEmail(), // Normalize the email (e.g., convert to lowercase)
+]
 
 // Validation for Profile Update
 const profileUpdateValidation = [
@@ -49,4 +57,5 @@ export  {
     loginValidation,
     profileUpdateValidation,
     changePasswordValidation,
+    forgetPasswordValidation
 };
