@@ -4,9 +4,22 @@ import { emailRegex, mobileRegex } from './regexConstant.js';
 // Validation for User Registration
 const registerValidation = [
     body('name').notEmpty().withMessage('Name is required'),
-    body('email').isEmail().withMessage('Invalid email format').normalizeEmail(),
+    body('email')
+        .isEmail().withMessage('Invalid email format') // Check if the email is valid
+        .notEmpty().withMessage('Email cannot be empty') // Ensure the email is not empty
+        .trim() // Trim whitespace from the email
+        .normalizeEmail(), // Normalize the email (e.g., convert to lowercase)
     body('mobile').isMobilePhone().withMessage('Invalid mobile number').notEmpty(),
 ];
+
+const changeAuthRequestValidation = [
+    body('email')
+        .isEmail().withMessage('Invalid email format') // Check if the email is valid
+        .notEmpty().withMessage('Email cannot be empty') // Ensure the email is not empty
+        .trim() // Trim whitespace from the email
+        .normalizeEmail(), // Normalize the email (e.g., convert to lowercase)
+    body('mobile').isMobilePhone().withMessage('Invalid mobile number').notEmpty(),
+]
 
 // Validation for User Login
 const loginValidation = [
@@ -51,11 +64,16 @@ const profileUpdateValidation = [
     body('summary').optional().notEmpty().withMessage('Summary cannot be empty'),
 ];
 
+const updateAuthInfoValidation = [
+    body('code').notEmpty().withMessage('Code cannot be empty'),
+]
 
 export  {
     registerValidation,
     loginValidation,
     profileUpdateValidation,
     changePasswordValidation,
-    forgetPasswordValidation
+    forgetPasswordValidation,
+    changeAuthRequestValidation,
+    updateAuthInfoValidation
 };

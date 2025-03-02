@@ -189,19 +189,54 @@ export const forgetPassword = CatchAsyncError(async (req,res,next) => {
         return next(new ErrorHandler(error.message, 400));
     }
 })
-// update email or mobile details try to build 
-export const updateEmailMobile=CatchAsyncError(async(req,res,next)=>{
-    const {new_email,new_mobile} = req.body;
+// update email or mobile details first send verification for email 
+export const changeAuthRequest=CatchAsyncError(async(req,res,next)=>{
+    const {email,mobile} = req.body;
+    const {user} = req;
     try{
-        const {id} = req.user;
-        await db.auth.update({
-            where: { id },
-            data: {
-                email: new_email,
-                mobile: new_mobile,
-            },
+        if(email !== user.email || mobile !== user.mobile){
+                 
+        const response = createActivationToken({email,mobile});
+        //activation code sent user email
+        const activationCode = response.activation_code;
+        const data = { user: { name: user.name , email }, activationCode };
+
+        sendMail({
+            email: email,
+            subject: "Email/Mobile Change Request",
+            template: "emailMobileChangeRequestMail.ejs", // this file name of email template with ejs template extension
+            data
         })
-        res.send({ message: 'User details updated successfully'});
+
+        return res.status(200).send({
+            message: "Check your email to put OTP and complete your change!"
+        });
+        }
+
+        return res.status(200).send({message:"No need to update anythings!"})
+    }catch(error){
+        return next(new ErrorHandler(error.message, 400));
+    }
+})
+//update auth information 
+export const updateAuthInfo = CatchAsyncError(async (req,res,next)=>{
+    const { code } = req.body;
+    const {user} = req;
+    try{
+        const updateAuth = jwt.verify(code, process.env.JWT_SECRET);
+        if(!updateAuth){
+            return res.status(401).send('Invalid verification code');
+        }
+        
+        await db.auth.update({
+            where: { id: user.id },
+            data: {
+                email: updateAuth.email,
+                mobile: updateAuth.mobile,
+            },
+        });
+        return res.status(200).send({message: "Auth updated successfully!"})
+
     }catch(error){
         return next(new ErrorHandler(error.message, 400));
     }
