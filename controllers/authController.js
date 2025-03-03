@@ -125,6 +125,7 @@ export const login  = CatchAsyncError( async (req, res,next)=> {
 // Logout User
 export const logout = CatchAsyncError(async (req, res, next) => {
     const token = req.headers['authorization']; // Get the token from the Authorization header
+    console.log(token,'token')
     await db.tokenBlacklist.create({ token }); // Store the token in the blacklist
     res.clearCookie('token');
     res.send({ message: 'User logged out successfully' });
@@ -138,7 +139,7 @@ export const changePassword = CatchAsyncError(async (req, res, next)=>{
         // Check if the old password is correct
         const isMatch = await compare(current_password, password);
         if (!isMatch) {
-            return res.status(401).send('Old password is incorrect');
+            return res.status(401).send({message:'Old password is incorrect'});
         }
         // Update the auth with the new data
         await db.auth.update({
@@ -149,7 +150,7 @@ export const changePassword = CatchAsyncError(async (req, res, next)=>{
         });
 
         // Send a success response
-        res.send({ message: 'User  updated successfully'});
+        res.send({ message: 'User updated successfully'});
         
     } catch (error) {
         return next(new ErrorHandler(error.message, 400));
@@ -210,7 +211,9 @@ export const changeAuthRequest=CatchAsyncError(async(req,res,next)=>{
         })
 
         return res.status(200).send({
-            message: "Check your email to put OTP and complete your change!"
+            status:true,
+            message: "Check your email to put OTP and complete your change!",
+            token: response.token,
         });
         }
 
@@ -221,13 +224,15 @@ export const changeAuthRequest=CatchAsyncError(async(req,res,next)=>{
 })
 //update auth information 
 export const updateAuthInfo = CatchAsyncError(async (req,res,next)=>{
-    const { code } = req.body;
+    const { code,token } = req.body;
     const {user} = req;
     try{
-        const updateAuth = jwt.verify(code, process.env.JWT_SECRET);
-        if(!updateAuth){
-            return res.status(401).send('Invalid verification code');
+        const updateAuth = jwt.verify(token, process.env.JWT_SECRET);
+
+        if (updateAuth.activation_code != code) {
+            return next(new ErrorHandler("Invalid activation code", 400))
         }
+
         
         await db.auth.update({
             where: { id: user.id },

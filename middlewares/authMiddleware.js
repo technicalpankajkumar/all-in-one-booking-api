@@ -7,6 +7,7 @@ import { CatchAsyncError } from '../utils/catchAsyncError.js';
 export const authMiddleware = CatchAsyncError(async (req, res, next) => {
     const token = req.headers['authorization']; // Extract token from Authorization header
 
+    
     if (!token) {
         return res.status(401).json({ error: 'Access Denied, Please Login First!' });
     }
