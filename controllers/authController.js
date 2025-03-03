@@ -18,8 +18,6 @@ export const register = CatchAsyncError(async (req, res,next)=> {
         }
  
         const response = createActivationToken({name,email,mobile});
-        console.log(response,"response")
-
         //activation code sent user email
         const activationCode = response.activation_code;
         
@@ -126,7 +124,7 @@ export const login  = CatchAsyncError( async (req, res,next)=> {
 })
 // Logout User
 export const logout = CatchAsyncError(async (req, res, next) => {
-    const token = req.headers['authorization'].split(' ')[1]; // Get the token from the Authorization header
+    const token = req.headers['authorization']; // Get the token from the Authorization header
     await db.tokenBlacklist.create({ token }); // Store the token in the blacklist
     res.clearCookie('token');
     res.send({ message: 'User logged out successfully' });
