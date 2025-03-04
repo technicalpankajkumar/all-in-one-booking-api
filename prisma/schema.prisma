@@ -25,6 +25,11 @@ model Auth {
   updated_at        DateTime @updatedAt
   profile           Profile?
 }
+model TokenBlacklist {
+  id        String   @id @default(auto()) @map("_id") @db.ObjectId
+  token     String   @unique
+  createdAt DateTime @default(now())
+}
 
 // Profile model
 model Profile {
