@@ -2,24 +2,27 @@ import jwt from 'jsonwebtoken'
 import ErrorHandler from '../utils/errorHandler.js';
 import { db } from '../config/db.js';
 import { CatchAsyncError } from '../utils/catchAsyncError.js';
+import { authService } from '../services/authService.js';
 
 // Middleware to validate token and get user
 export const authMiddleware = CatchAsyncError(async (req, res, next) => {
-    const token = req.headers['authorization']; // Extract token from Authorization header
-
-    
-    if (!token) {
-        return res.status(401).json({ error: 'Access Denied, Please Login First!' });
-    }
-
     try {
+        const token = req.headers['authorization']; // Extract token from Authorization header
+        if (!token) {
+            return next(new ErrorHandler('Access Denied, Please Login First!',403))
+        }
+    
+        const isBlacklisted = await authService.isTokenBlacklisted(token);
+        if (isBlacklisted) {
+            return next(new ErrorHandler('Token is blacklisted!',403))
+        }
         // Verify the token
-        const decoded = jwt.verify(token, process.env.JWT_SECRET); // Use your secret key
+        const decoded = jwt.verify(token, process.env.ACCESS_TOKEN_SECRET); // Use your secret key
         // Retrieve user from the database
-        const user = await db.auth.findUnique({ where: { id: decoded.id } });
+        const user = await authService.findAuth({ where: { id: decoded.id } })
         
         if (!user) {
-            return res.status(404).json({ error: 'User  not found' });
+            return next(new ErrorHandler('User not found!',404))
         }
 
         // Attach user to request object

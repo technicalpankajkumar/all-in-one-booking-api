@@ -5,16 +5,17 @@ import { db } from '../config/db.js';
 import { CatchAsyncError } from '../utils/catchAsyncError.js';
 import ErrorHandler from '../utils/errorHandler.js';
 import sendMail from '../utils/sendEmail.js';
+import { authService } from '../services/authService.js';
 
 export const register = CatchAsyncError(async (req, res,next)=> {
     
     const { name, email, mobile } = req.body;
     
     try {
-        const exitsEmail = await db.auth.findFirst({ where: { OR: [ { email }, { mobile } ] } })
+        const exitsEmail = await authService.findAuth({ where: { OR: [ { email }, { mobile } ] } })
 
         if(exitsEmail){
-            return res.status(400).send({ message: 'User email or mobile already exist.' });
+            return next(new ErrorHandler('User email or mobile already exist.', 400))
         }
  
         const response = createActivationToken({name,email,mobile});
@@ -27,7 +28,7 @@ export const register = CatchAsyncError(async (req, res,next)=> {
             sendMail({
                 email: email,
                 subject: "Activate you account",
-                template: "activationMail.ejs", // this file name of email template with ejs template extension
+                template: "activationMail.ejs",
                 data,
             })
             return res.status(201).send({
@@ -46,7 +47,12 @@ export const register = CatchAsyncError(async (req, res,next)=> {
 export const activateUser = CatchAsyncError(async (req,res, next)=>{
     const { token, code } = req.body;
     try {
-        const newUser = jwt.verify( token, process.env.JWT_SECRET);
+        const newUser = jwt.verify(token, process.env.ACCESS_TOKEN_SECRET || '', (err, user) => {
+            if (err) {
+                return next(new ErrorHandler('Invalid token', 403))
+            }
+           return user
+        });
         
         if (newUser.activation_code !== code) {
             return next(new ErrorHandler("Invalid activation code", 400))
@@ -56,22 +62,16 @@ export const activateUser = CatchAsyncError(async (req,res, next)=>{
         const { name, email,mobile } = newUser.user;
         const password = generateRandomPassword(); 
         const username = await generateUniqueUsername(name, email); 
-        // console.log(us)
-        
-        const hashedPassword = await hash(password,10);
 
-        // Create a new user
-        await db.auth.create({
-            data: {
-                name,
-                email,
-                mobile,
-                username,
-                verification_code:code,
-                is_verified: true,
-                password: hashedPassword,
-            },
-        });
+       const user = await authService.createAuth({
+            name,
+            email,
+            mobile,
+            username,
+            verification_code:code,
+            is_verified: true,
+            password,
+        })
         
         // successfully account created welcome email send 
         const data = { user: { name, password} };
@@ -98,7 +98,7 @@ export const login  = CatchAsyncError( async (req, res,next)=> {
     const match = login?.toLowerCase();
 
     try {
-        const user = await db.auth.findFirst({
+        const user = await authService.findAuth({
             where: {
                 OR: [
                     { email: match },
@@ -106,18 +106,21 @@ export const login  = CatchAsyncError( async (req, res,next)=> {
                     { username: match },
                 ],
             },
-        });
+        })
 
         if (!user) return res.status(404).send({ message: 'User  not found' });
 
-        const isMatch = await compare(password, user.password);
-        if (!isMatch) return res.status(400).send({ message: 'Invalid credentials' });
+        const isMatch = await authService.comparePassword(password, user.password);
+        if (!isMatch) return next(new ErrorHandler('Invalid credentials', 400));
 
-        const token = jwt.sign({ id: user.id }, process.env.JWT_SECRET, { expiresIn: '1h' });
+        const token = authService.signAccessToken(user.id);
+        const ref_token = authService.signRefreshToken(user.id);
          // Optionally, you can set the token in a cookie
         res.cookie('token', token, { httpOnly: true, secure: process.env.NODE_ENV === 'production' });
+        res.cookie('refToken', ref_token, { httpOnly: true, secure: process.env.NODE_ENV === 'production' });
 
-        res.send({ token, name : user.name , email :user.email , mobile : user.mobile });
+        res.status(200).send({ token,ref_token, name : user.name , email :user.email , mobile : user.mobile });
+
     } catch (error) {
         return next(new ErrorHandler(error.message, 400))
     }
@@ -125,10 +128,14 @@ export const login  = CatchAsyncError( async (req, res,next)=> {
 // Logout User
 export const logout = CatchAsyncError(async (req, res, next) => {
     const token = req.headers['authorization']; // Get the token from the Authorization header
-    console.log(token,'token')
-    await db.tokenBlacklist.create({ token }); // Store the token in the blacklist
-    res.clearCookie('token');
-    res.send({ message: 'User logged out successfully' });
+
+    if (token) {
+        await authService.blacklistToken(token);
+        res.clearCookie('token');
+       return res.status(200).send({ message: 'Logged out successfully!' });
+    } else {
+        return next(new ErrorHandler('Token not provided',400))
+    }
 });
 // change password functionality
 export const changePassword = CatchAsyncError(async (req, res, next)=>{
@@ -277,9 +284,9 @@ const generateRandomPassword = (length = 12) => {
     return password;
 };
 // email activation token
-export const createActivationToken = (user) => {
+export const createActivationToken = async (user) => {
     const activation_code = Math.floor(1000 + Math.random() * 9000).toString();
-    const token = jwt.sign({ user, activation_code }, process.env.JWT_SECRET , { expiresIn: "1h" });
+    const token = authService.signAccessToken({ user, activation_code })
 
     return { token, activation_code }
 }
