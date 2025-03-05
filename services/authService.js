@@ -16,6 +16,22 @@ class AuthService {
     async findAuth(query){
         return await db.auth.findFirst(query)
     }
+    async updateAuthPassword(query,data){
+        const hashedPassword = await hash(data.password, 10);
+        return await db.auth.update({
+            ...query,
+            data:{
+                ...data,
+                password: hashedPassword
+            }
+        })
+    }
+    async updateAuth(query,data){
+        return await db.auth.update({
+            ...query,
+            data
+        })
+    }
 
     async comparePassword(enteredPassword, storedPassword) {
         return await compare(enteredPassword, storedPassword);
@@ -34,7 +50,7 @@ class AuthService {
 
     }
     async storeRefreshToken(authId, refreshToken) {
-        await db.refreshToken.create({
+        await db.refreshTokenList.create({
             data: {
                 auth_id:authId,
                 token: refreshToken,
@@ -44,13 +60,13 @@ class AuthService {
     }
 
     async revokeRefreshToken(token) {
-        await db.refreshToken.delete({
+        await db.refreshTokenList.delete({
             where: { token },
         });
     }
 
     async findRefreshToken(token) {
-        return await db.refreshToken.findUnique({
+        return await db.refreshTokenList.findUnique({
             where: { token },
         });
     }

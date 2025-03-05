@@ -68,6 +68,10 @@ const updateAuthInfoValidation = [
     body('code').notEmpty().withMessage('Code cannot be empty'),
 ]
 
+const reGenerateTokenValidation = [
+    body('refreshToken').notEmpty().withMessage('refreshToken cannot be empty'),
+]
+
 export  {
     registerValidation,
     loginValidation,
@@ -75,5 +79,6 @@ export  {
     changePasswordValidation,
     forgetPasswordValidation,
     changeAuthRequestValidation,
-    updateAuthInfoValidation
+    updateAuthInfoValidation,
+    reGenerateTokenValidation
 };

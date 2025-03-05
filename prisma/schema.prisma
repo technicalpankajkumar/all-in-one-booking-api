@@ -30,6 +30,12 @@ model TokenBlacklist {
   token     String   @unique
   createdAt DateTime @default(now())
 }
+model RefreshTokenList {
+  id        String   @id @default(auto()) @map("_id") @db.ObjectId
+  auth_id   String   @unique @db.ObjectId
+  token     String   @unique
+  expire_at DateTime @default(now())
+}
 
 // Profile model
 model Profile {

@@ -1,7 +1,5 @@
-import { hash, compare } from 'bcryptjs';
 import 'dotenv/config.js'
 import jwt from 'jsonwebtoken';
-import { db } from '../config/db.js';
 import { CatchAsyncError } from '../utils/catchAsyncError.js';
 import ErrorHandler from '../utils/errorHandler.js';
 import sendMail from '../utils/sendEmail.js';
@@ -18,12 +16,12 @@ export const register = CatchAsyncError(async (req, res,next)=> {
             return next(new ErrorHandler('User email or mobile already exist.', 400))
         }
  
-        const response = createActivationToken({name,email,mobile});
+        const response = await createActivationToken({name,email,mobile});
         //activation code sent user email
 
         const activationCode = response.activation_code;
-        
-        const data = { user: { name , email }, activationCode };
+
+        const data = { user: { name, email , activationCode } };
 
         try {
             sendMail({
@@ -126,7 +124,7 @@ export const login  = CatchAsyncError( async (req, res,next)=> {
     }
 })
 // Refresh token endpoint
-router.post('/refresh', async (req, res) => {
+export const reGenerateToken  = CatchAsyncError( async (req, res) => {
     const { refreshToken } = req.body;
 
     if (!refreshToken) {
@@ -176,20 +174,16 @@ export const changePassword = CatchAsyncError(async (req, res, next)=>{
 
     try {
         // Check if the old password is correct
-        const isMatch = await compare(current_password, password);
+        const isMatch = await authService.comparePassword(current_password, password);
         if (!isMatch) {
-            return res.status(401).send({message:'Old password is incorrect'});
+            return next(new ErrorHandler('Old password is incorrect',401))
         }
         // Update the auth with the new data
-        await db.auth.update({
-            where: { id },
-            data: {
-                password: await hash(new_password, 10),
-            },
-        });
-
+        let qeury = { where: { id } };
+        let data = {password: new_password}
+        await authService.updateAuthPassword(qeury,data);
         // Send a success response
-        res.send({ message: 'User updated successfully'});
+        return res.status(200).send({ message: 'User updated successfully'});
         
     } catch (error) {
         return next(new ErrorHandler(error.message, 400));
@@ -200,20 +194,18 @@ export const forgetPassword = CatchAsyncError(async (req,res,next) => {
     const { email } = req.body; // Get the user's email from the request body
 
     try{
-        const user = await db.auth.findFirst({ where: { email } });
+        const user = await authService.findAuth({ where: { email } });
+
         if(!user){
-            return res.status(404).send({ message: 'User not found!' });
+            return next(new ErrorHandler('User not found!',404))
         }
 
         const password = generateRandomPassword(); // Generate a new password
-        const hashedPassword = await hash(password,10);
+        
+        let query = {where: { id: user.id }};
+        let data = {password}
 
-        await db.auth.update({
-            where: { id: user.id },
-            data: {
-                password: hashedPassword,
-            },
-        })
+        await authService.updateAuthPassword(query,data);
         
         sendMail({
             email: email,
@@ -237,23 +229,23 @@ export const changeAuthRequest=CatchAsyncError(async(req,res,next)=>{
     try{
         if(email !== user.email || mobile !== user.mobile){
                  
-        const response = createActivationToken({email,mobile});
-        //activation code sent user email
-        const activationCode = response.activation_code;
-        const data = { user: { name: user.name , email }, activationCode };
+            const response = await createActivationToken({email,mobile});
+            //activation code sent user email
+            const activationCode = response.activation_code;
+            const data = { user: { name: user.name , email }, activationCode };
 
-        sendMail({
-            email: email,
-            subject: "Email/Mobile Change Request",
-            template: "emailMobileChangeRequestMail.ejs", // this file name of email template with ejs template extension
-            data
-        })
+            sendMail({
+                email: email,
+                subject: "Email/Mobile Change Request",
+                template: "emailMobileChangeRequestMail.ejs", // this file name of email template with ejs template extension
+                data
+            })
 
-        return res.status(200).send({
-            status:true,
-            message: "Check your email to put OTP and complete your change!",
-            token: response.token,
-        });
+            return res.status(200).send({
+                status:true,
+                message: "Check your email to put OTP and complete your change!",
+                token: response.token,
+            });
         }
 
         return res.status(200).send({message:"No need to update anythings!"})
@@ -266,20 +258,19 @@ export const updateAuthInfo = CatchAsyncError(async (req,res,next)=>{
     const { code,token } = req.body;
     const {user} = req;
     try{
-        const updateAuth = jwt.verify(token, process.env.JWT_SECRET);
+        const updateAuth = jwt.verify(token, process.env.ACCESS_TOKEN_SECRET);
 
         if (updateAuth.activation_code != code) {
             return next(new ErrorHandler("Invalid activation code", 400))
         }
 
-        
-        await db.auth.update({
-            where: { id: user.id },
-            data: {
-                email: updateAuth.email,
-                mobile: updateAuth.mobile,
-            },
-        });
+        let query = {where: { id: user.id }}
+        let data = {
+            email: updateAuth.email,
+            mobile: updateAuth.mobile,
+        }
+        await authService.updateAuth(query,data);
+
         return res.status(200).send({message: "Auth updated successfully!"})
 
     }catch(error){
@@ -299,7 +290,7 @@ const generateUniqueUsername = async (name, email) => {
     }
     let count = 1;
     // Check for uniqueness in the database
-    while (await db.auth.findUnique({ where: { username } })) {
+    while (await authService.findAuth({ where: { username } })) {
         username = `${username.slice(0, 7)}${count}`; // Keep the first 7 characters and append the count
         count++;
     }
