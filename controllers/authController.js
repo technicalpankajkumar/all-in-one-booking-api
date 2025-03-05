@@ -20,6 +20,7 @@ export const register = CatchAsyncError(async (req, res,next)=> {
  
         const response = createActivationToken({name,email,mobile});
         //activation code sent user email
+
         const activationCode = response.activation_code;
         
         const data = { user: { name , email }, activationCode };
@@ -114,24 +115,55 @@ export const login  = CatchAsyncError( async (req, res,next)=> {
         if (!isMatch) return next(new ErrorHandler('Invalid credentials', 400));
 
         const token = authService.signAccessToken(user.id);
-        const ref_token = authService.signRefreshToken(user.id);
+        const refresh_token = authService.signRefreshToken(user.id);
          // Optionally, you can set the token in a cookie
         res.cookie('token', token, { httpOnly: true, secure: process.env.NODE_ENV === 'production' });
-        res.cookie('refToken', ref_token, { httpOnly: true, secure: process.env.NODE_ENV === 'production' });
-
-        res.status(200).send({ token,ref_token, name : user.name , email :user.email , mobile : user.mobile });
+        res.cookie('refreshToken', refresh_token, { httpOnly: true, secure: process.env.NODE_ENV === 'production' });
+       return res.status(200).send({ token,refresh_token, name : user.name , email :user.email , mobile : user.mobile });
 
     } catch (error) {
         return next(new ErrorHandler(error.message, 400))
     }
 })
+// Refresh token endpoint
+router.post('/refresh', async (req, res) => {
+    const { refreshToken } = req.body;
+
+    if (!refreshToken) {
+        return next(new ErrorHandler('Refresh token required',401))
+    }
+
+    // Check if the refresh token is blacklisted
+    const isBlacklisted = await authService.isTokenBlacklisted(refreshToken);
+    if (isBlacklisted) {
+        return next(new ErrorHandler('Refresh token is blacklisted',403));
+    }
+
+    // Verify the refresh token
+    const decoded = jwt.verify(refreshToken, process.env.REFRESH_TOKEN_SECRET || '');
+    const storedRefreshToken = await authService.findRefreshToken(refreshToken);
+
+    if (!storedRefreshToken || storedRefreshToken.auth_id !== decoded.id) {
+        return next(new ErrorHandler('Invalid refresh token',403))
+    }
+
+    // Generate new access token
+    const accessToken = authService.signAccessToken({ id: decoded.id });
+
+    res.json({ accessToken });
+});
 // Logout User
 export const logout = CatchAsyncError(async (req, res, next) => {
     const token = req.headers['authorization']; // Get the token from the Authorization header
-
+    const { refreshToken } = req.body;
+    if (!refreshToken) {
+        return res.status(401).json({ error: 'Refresh token required ' });
+    }
     if (token) {
         await authService.blacklistToken(token);
+        await authService.revokeRefreshToken(refreshToken); 
         res.clearCookie('token');
+        res.clearCookie('refreshToken');
        return res.status(200).send({ message: 'Logged out successfully!' });
     } else {
         return next(new ErrorHandler('Token not provided',400))

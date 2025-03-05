@@ -31,6 +31,28 @@ class AuthService {
         return jwt.sign(user, process.env.REFRESH_TOKEN_SECRET || '', {
             expiresIn: '1d',
         });
+
+    }
+    async storeRefreshToken(authId, refreshToken) {
+        await db.refreshToken.create({
+            data: {
+                auth_id:authId,
+                token: refreshToken,
+                expire_at: new Date(Date.now() + 24 * 60 * 60 * 1000), // 1 day
+            },
+        });
+    }
+
+    async revokeRefreshToken(token) {
+        await db.refreshToken.delete({
+            where: { token },
+        });
+    }
+
+    async findRefreshToken(token) {
+        return await db.refreshToken.findUnique({
+            where: { token },
+        });
     }
 
     async blacklistToken(token) {
