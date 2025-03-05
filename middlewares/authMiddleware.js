@@ -6,8 +6,9 @@ import { authService } from '../services/authService.js';
 
 // Middleware to validate token and get user
 export const authMiddleware = CatchAsyncError(async (req, res, next) => {
+
     try {
-        const token = req.headers['authorization']; // Extract token from Authorization header
+        const token = req.headers['authorization'] || req.cookies?.token; // Extract token from Authorization header
         if (!token) {
             return next(new ErrorHandler('Access Denied, Please Login First!',403))
         }

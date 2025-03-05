@@ -107,16 +107,20 @@ export const login  = CatchAsyncError( async (req, res,next)=> {
             },
         })
 
+        
         if (!user) return res.status(404).send({ message: 'User  not found' });
-
+        
         const isMatch = await authService.comparePassword(password, user.password);
         if (!isMatch) return next(new ErrorHandler('Invalid credentials', 400));
+        const token =  authService.signAccessToken({id:user.id});
+        
+        const refresh_token = authService.signRefreshToken({id:user.id});
+        // store refresh token in table
+        await authService.storeRefreshToken(user.id, refresh_token);
 
-        const token = authService.signAccessToken(user.id);
-        const refresh_token = authService.signRefreshToken(user.id);
-         // Optionally, you can set the token in a cookie
         res.cookie('token', token, { httpOnly: true, secure: process.env.NODE_ENV === 'production' });
         res.cookie('refreshToken', refresh_token, { httpOnly: true, secure: process.env.NODE_ENV === 'production' });
+
        return res.status(200).send({ token,refresh_token, name : user.name , email :user.email , mobile : user.mobile });
 
     } catch (error) {
@@ -153,7 +157,10 @@ export const reGenerateToken  = CatchAsyncError( async (req, res) => {
 // Logout User
 export const logout = CatchAsyncError(async (req, res, next) => {
     const token = req.headers['authorization']; // Get the token from the Authorization header
-    const { refreshToken } = req.body;
+    const { refresh_token } = req.body;
+
+    let refreshToken = refresh_token || req.cookies?.refreshToken
+    
     if (!refreshToken) {
         return res.status(401).json({ error: 'Refresh token required ' });
     }
