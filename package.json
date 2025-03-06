@@ -9,7 +9,7 @@
   "scripts": {
     "start": "node index.js",
     "postinstall": "prisma generate",
-    "build": "npm install",
+    "build": "npm install && npm run build",
     "test": "echo \"Error: no test specified\" && exit 1",
     "dev":"nodemon index.js"
   },
