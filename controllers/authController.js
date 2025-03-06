@@ -108,7 +108,7 @@ export const login  = CatchAsyncError( async (req, res,next)=> {
         })
 
         
-        if (!user) return res.status(404).send({ message: 'User  not found' });
+        if (!user) return res.status(404).send({ message: 'User not found' });
         
         const isMatch = await authService.comparePassword(password, user.password);
         if (!isMatch) return next(new ErrorHandler('Invalid credentials', 400));
@@ -156,7 +156,7 @@ export const reGenerateToken  = CatchAsyncError( async (req, res) => {
 });
 // Logout User
 export const logout = CatchAsyncError(async (req, res, next) => {
-    const token = req.headers['authorization']; // Get the token from the Authorization header
+    const token = req.headers['authorization'] || req.cookies?.token; // Get the token from the Authorization header
     const { refresh_token } = req.body;
 
     let refreshToken = refresh_token || req.cookies?.refreshToken
@@ -190,7 +190,7 @@ export const changePassword = CatchAsyncError(async (req, res, next)=>{
         let data = {password: new_password}
         await authService.updateAuthPassword(qeury,data);
         // Send a success response
-        return res.status(200).send({ message: 'User updated successfully'});
+        return res.status(200).send({ message: 'Password updated successfully'});
         
     } catch (error) {
         return next(new ErrorHandler(error.message, 400));
@@ -236,10 +236,10 @@ export const changeAuthRequest=CatchAsyncError(async(req,res,next)=>{
     try{
         if(email !== user.email || mobile !== user.mobile){
                  
-            const response = await createActivationToken({email,mobile});
+            const response = await createActivationToken({email : email || user.email,mobile : mobile || user.mobile});
             //activation code sent user email
             const activationCode = response.activation_code;
-            const data = { user: { name: user.name , email }, activationCode };
+            const data = { user: { name: user.name , activationCode },  };
 
             sendMail({
                 email: email,
@@ -250,7 +250,7 @@ export const changeAuthRequest=CatchAsyncError(async(req,res,next)=>{
 
             return res.status(200).send({
                 status:true,
-                message: "Check your email to put OTP and complete your change!",
+                message: `Check your email ${email ?? user.email} to put OTP and complete your change!`,
                 token: response.token,
             });
         }

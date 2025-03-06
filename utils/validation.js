@@ -18,7 +18,7 @@ const changeAuthRequestValidation = [
         .notEmpty().withMessage('Email cannot be empty') // Ensure the email is not empty
         .trim() // Trim whitespace from the email
         .normalizeEmail(), // Normalize the email (e.g., convert to lowercase)
-    body('mobile').isMobilePhone().withMessage('Invalid mobile number').notEmpty(),
+    body('mobile').optional().isMobilePhone().withMessage('Invalid mobile number').notEmpty(),
 ]
 
 // Validation for User Login
