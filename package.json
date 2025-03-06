@@ -1,14 +1,19 @@
 {
-  "name": "libraricals-resume-api",
+  "name": "iwt-resume-api",
   "version": "1.0.0",
-  "description": "libraricals-resume-api",
+  "description": "iwt-resume-api",
   "license": "ISC",
   "author": "Pankaj Kumar",
   "type": "module",
   "main": "index.js",
   "scripts": {
+    "start": "node index.js",
+    "build": "npm install",
     "test": "echo \"Error: no test specified\" && exit 1",
     "dev":"nodemon index.js"
+  },
+  "engines": {
+    "node": "18.x"
   },
   "dependencies": {
     "@prisma/client": "^6.4.1",
