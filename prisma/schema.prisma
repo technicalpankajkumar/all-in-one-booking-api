@@ -11,6 +11,15 @@ generator client {
   provider = "prisma-client-js"
 }
 
+enum Role {
+  MASTER        // highest access (super admin)
+  ADMIN         // admin users
+  MANAGER       // manage bookings, staff
+  DRIVER        // drivers
+  TOUR_GUIDE    // tour guide
+  USER          // normal customer
+}
+
 // Auth model
 model Auth {
   id                String   @id @default(auto()) @map("_id") @db.ObjectId
@@ -19,12 +28,15 @@ model Auth {
   mobile            String   @unique
   username          String   @unique
   password          String
+  role              Role     @default(USER)   // ⬅ Add this line
   is_verified       Boolean  @default(false)
   verification_code String   @default("")
   created_at        DateTime @default(now())
   updated_at        DateTime @updatedAt
   profile           Profile?
+  bookings          Booking[]
 }
+
 model TokenBlacklist {
   id        String   @id @default(auto()) @map("_id") @db.ObjectId
   token     String   @unique
@@ -37,110 +49,128 @@ model RefreshTokenList {
   expire_at DateTime @default(now())
 }
 
-// Profile model
+// -------------------------------------------------------------
+// PROFILE MODEL
+// -------------------------------------------------------------
 model Profile {
-  id                  String                @id @default(auto()) @map("_id") @db.ObjectId
-  auth_id             String                @unique @db.ObjectId
-  Auth                Auth                  @relation(fields: [auth_id], references: [id])
-  current_address     String?  @default("")
-  permanent_address   String?  @default("")
-  designation         String?  @default("")
-  summary             String?  @default("")
-  language            String[]  @default([])
-  is_experience       Boolean @default(false)
-  linkedin            String?  @default("")
-  github              String?  @default("")
-  portfolio_url       String?  @default("")
-  experiences         Experience[]
-  projects            Project[]
-  educations          Education[]
-  skills              Skill[]
-  references          Reference[]
-  internships         InternApprenticeship[]
-  created_at           DateTime @default(now())
-  updated_at           DateTime @updatedAt
+  id                String    @id @default(auto()) @map("_id") @db.ObjectId
+  auth_id           String    @unique @db.ObjectId
+  Auth              Auth      @relation(fields: [auth_id], references: [id])
+  current_address   String?   @default("")
+  permanent_address String?   @default("")
+  city                String?
+  state               String?
+  country             String?
+  pincode             String?
+  language          String[]  @default([])
+  created_at        DateTime  @default(now())
+  updated_at        DateTime  @updatedAt
 }
 
-// Experience model
-model Experience {
-  id          String   @id @default(cuid()) @map("_id")
-  company_name String
-  profile     Profile  @relation(fields: [profile_id], references: [id])
-  profile_id   String   @db.ObjectId
-  from_date   DateTime  @default(now())
-  to_date     DateTime? 
-  description String?   @default("")
-  role        String    
-  created_at   DateTime @default(now())
-  updated_at   DateTime @updatedAt
+// -------------------------------------------------------------
+// CAR MODELS
+// -------------------------------------------------------------
+model Car {
+  id            String        @id @default(auto()) @map("_id") @db.ObjectId
+  car_name      String
+  car_type      String       // Mini, Sedan, SUV
+  fuel_type     String?
+  seat_capacity Int
+  bag_capacity  Int
+  base_price    Float
+  price_unit    String       // per_trip, per_km, per_day
+  description   String?
+  is_available  Boolean      @default(true)
+  features      CarFeatures?
+  images        CarImage[]
+  driver        Driver?
+  bookings      Booking[]
+  created_at    DateTime     @default(now())
+  updated_at    DateTime     @updatedAt
 }
 
-// Project model
-model Project {
-  id          String   @id @default(cuid()) @map("_id")
-  name        String   
-  role        String   
-  description String?  @default("")
-  from_date   DateTime  
-  to_date     DateTime?
-  profile     Profile  @relation(fields: [profile_id], references: [id])
-  profile_id   String   @db.ObjectId
-  created_at   DateTime @default(now())
-  updated_at   DateTime @updatedAt
+model CarFeatures {
+  id                     String  @id @default(auto()) @map("_id") @db.ObjectId
+  car_id                 String  @unique @db.ObjectId
+  Car                    Car     @relation(fields: [car_id], references: [id])
+  ac                     Boolean @default(false)
+  gps                    Boolean @default(false)
+  music_system           Boolean @default(false)
+  automatic_transmission Boolean @default(false)
 }
 
-// Education model
-model Education {
-  id          String   @id @default(cuid()) @map("_id")
-  name        String
-  from_date   DateTime
-  to_date     DateTime
-  college_name String
-  profile     Profile  @relation(fields: [profile_id], references: [id])
-  profile_id   String   @db.ObjectId
-  created_at   DateTime @default(now())
-  updated_at   DateTime @updatedAt
+model CarImage {
+  id        String @id @default(auto()) @map("_id") @db.ObjectId
+  car_id    String @db.ObjectId
+  Car       Car    @relation(fields: [car_id], references: [id])
+  image_url String
+  is_main   Boolean @default(false)
 }
 
-// Skill model
-model Skill {
-  id                String   @id @default(cuid()) @map("_id")
-  front_end         String[]  @default([])
-  back_end          String[]  @default([])
-  database_end      String[]  @default([])
-  version_control    String[] @default([])
-  project_management String[] @default([])
-  other             String[]  @default([])
-  description       String?    @default("")
-  profile_id         String   @db.ObjectId
-  profile           Profile  @relation(fields: [profile_id], references: [id])
-  created_at         DateTime @default(now())
-  updated_at         DateTime @updatedAt
+// -------------------------------------------------------------
+// DRIVER MODEL
+// -------------------------------------------------------------
+model Driver {
+  id             String   @id @default(auto()) @map("_id") @db.ObjectId
+  driver_name    String
+  phone          String
+  license_number String?
+  address        String?
+  rating         Float?   @default(0)
+  assigned_car_id String? @unique @db.ObjectId
+  Car            Car?     @relation(fields: [assigned_car_id], references: [id])
+  bookings       Booking[]
+  created_at     DateTime @default(now())
+  updated_at     DateTime @updatedAt
 }
 
-// Reference model
-model Reference {
-  id        String   @id @default(cuid())  @map("_id")
-  profile   Profile  @relation(fields: [profile_id], references: [id])
-  profile_id String   @db.ObjectId
-  name      String
-  role      String
-  email     String
-  phone     String
-  created_at DateTime @default(now())
-  updated_at DateTime @updatedAt
+// -------------------------------------------------------------
+// POLICY MODEL
+// -------------------------------------------------------------
+model Policy {
+  id                 String   @id @default(auto()) @map("_id") @db.ObjectId
+  title              String
+  description        String?
+  car_type           String?   // Mini/Sedan/SUV
+  min_booking_km     Int?      @default(0)
+  cancellation_rules String?
+  terms_conditions   String?
+  created_at         DateTime  @default(now())
+  updated_at         DateTime  @updatedAt
 }
 
-// InternApprenticeship model
-model InternApprenticeship {
-  id          String   @id @default(cuid())   @map("_id")
-  profile_id   String   @db.ObjectId
-  profile     Profile  @relation(fields: [profile_id], references: [id])
-  company_name String
-  role        String
-  from_date   DateTime
-  to_date     DateTime
-  description  String? @default("")
-  created_at   DateTime @default(now())
-  updated_at   DateTime @updatedAt
+// -------------------------------------------------------------
+// BOOKING MODEL
+// -------------------------------------------------------------
+model Booking {
+  id             String    @id @default(auto()) @map("_id") @db.ObjectId
+  user_id        String    @db.ObjectId
+  auth           Auth      @relation(fields: [user_id], references: [id])
+  car_id         String    @db.ObjectId
+  car            Car       @relation(fields: [car_id], references: [id])
+  driver_id      String?   @db.ObjectId
+  driver         Driver?   @relation(fields: [driver_id], references: [id])
+  from_location  String
+  to_location    String
+  distance_km    Float
+  total_price    Float
+  booking_time   DateTime  @default(now())
+  travel_date    DateTime
+  payment_method String     // Cash, UPI, Card
+  payment_status String     // Paid, Pending
+  booking_status String     // Confirmed, Cancelled, Completed
+  transaction    Transaction?
+}
+
+// -------------------------------------------------------------
+// TRANSACTION MODEL
+// -------------------------------------------------------------
+model Transaction {
+  id               String   @id @default(auto()) @map("_id") @db.ObjectId
+  booking_id       String   @unique @db.ObjectId
+  Booking          Booking  @relation(fields: [booking_id], references: [id])
+  amount           Float
+  status           String   // success, failed, pending
+  payment_gateway  String?
+  created_at       DateTime @default(now())
 }
