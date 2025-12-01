@@ -1,7 +1,7 @@
 {
-  "name": "iwt-resume-api",
+  "name": "all-in-one-booking-api",
   "version": "1.0.0",
-  "description": "iwt-resume-api",
+  "description": "all-in-one-booking-api",
   "license": "ISC",
   "author": "Pankaj Kumar",
   "type": "module",
@@ -11,13 +11,13 @@
     "postinstall": "prisma generate",
     "build": "npm install && npm run build",
     "test": "echo \"Error: no test specified\" && exit 1",
-    "dev":"nodemon index.js"
+    "dev": "nodemon index.js"
   },
   "engines": {
     "node": "18.x"
   },
   "dependencies": {
-    "@prisma/client": "^6.4.1",
+    "@prisma/client": "^7.0.1",
     "bcryptjs": "^3.0.2",
     "cookie-parser": "^1.4.7",
     "cors": "^2.8.5",
@@ -27,7 +27,9 @@
     "express-validator": "^7.2.1",
     "jsonwebtoken": "^9.0.2",
     "nodemailer": "^6.10.0",
-    "nodemon": "^3.1.9",
-    "prisma": "^6.4.1"
+    "nodemon": "^3.1.9"
+  },
+  "devDependencies": {
+    "prisma": "^7.0.1"
   }
 }

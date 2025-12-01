@@ -1,7 +1,7 @@
 import express, { json } from 'express';
 import authRoutes from './routes/authRoute.js';
 import userRoutes from './routes/userRoute.js';
-import resumeRoute from './routes/resumeRoute.js';
+
 import { errorMiddleware } from './middlewares/errorMiddleware.js';
 import cookieParser from 'cookie-parser';
 import cors from 'cors'
@@ -24,7 +24,6 @@ app.use(cors(corsOptions));
 
 app.use('/api/v1/auth', authRoutes);
 app.use('/api/v1/user', userRoutes);
-app.use('/api/v1/resume', resumeRoute);
 
 // Sample route
 app.get('/api/v1', (req, res) => {
