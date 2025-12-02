@@ -169,7 +169,7 @@ export const logout = CatchAsyncError(async (req, res, next) => {
         await authService.revokeRefreshToken(refreshToken); 
         res.clearCookie('token');
         res.clearCookie('refreshToken');
-       return res.status(200).send({ message: 'Logged out successfully!' });
+       return res.status(200).send({success:true, message: 'Logged out successfully!' });
     } else {
         return next(new ErrorHandler('Token not provided',400))
     }
