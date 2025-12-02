@@ -5,6 +5,11 @@ import userRoutes from './routes/userRoute.js';
 import { errorMiddleware } from './middlewares/errorMiddleware.js';
 import cookieParser from 'cookie-parser';
 import cors from 'cors'
+import cabRoute from './routes/cabRoute.js';
+import driverRoute from './routes/driverRoute.js';
+import policyRoute from './routes/policyRoute.js';
+import bookingRoute from './routes/bookingRoute.js';
+import transactionRoute from './routes/transactionRoute.js';
 export const app = express();
 
 //body parser
@@ -24,6 +29,11 @@ app.use(cors(corsOptions));
 
 app.use('/api/v1/auth', authRoutes);
 app.use('/api/v1/user', userRoutes);
+app.use('/api/v1/cab', cabRoute);
+app.use('/api/v1/driver', driverRoute);
+app.use('/api/v1/policy', policyRoute);
+app.use('/api/v1/booking', bookingRoute);
+app.use('/api/v1/transaction', transactionRoute);
 
 // Sample route
 app.get('/api/v1', (req, res) => {
