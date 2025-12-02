@@ -7,11 +7,6 @@ datasource db {
   url      = env("DATABASE_URL")
 }
 
-model dummy {
-  id String @id @default(auto()) @map("_id") @db.ObjectId
-}
-
-
 enum Role {
   MASTER        // highest access (super admin)
   ADMIN         // admin users

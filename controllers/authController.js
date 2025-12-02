@@ -82,7 +82,7 @@ export const activateUser = CatchAsyncError(async (req,res, next)=>{
                 template: "welcomeMail.ejs", // this file name of email template with ejs template extension
                 data,
             });
-            res.status(201).send({ message: "Account successfully created!"})
+            res.status(201).send({success:true, message: "Account successfully created!"})
         } catch (error ) {
             return next(new ErrorHandler(error.message, 400))
         }
@@ -121,7 +121,7 @@ export const login  = CatchAsyncError( async (req, res,next)=> {
         res.cookie('token', token, { httpOnly: true, secure: process.env.NODE_ENV === 'production' });
         res.cookie('refreshToken', refresh_token, { httpOnly: true, secure: process.env.NODE_ENV === 'production' });
 
-       return res.status(200).send({ token,refresh_token, name : user.name , email :user.email , mobile : user.mobile });
+       return res.status(200).send({ data:{token,refresh_token, name : user.name , email :user.email , mobile : user.mobile},success:true });
 
     } catch (error) {
         return next(new ErrorHandler(error.message, 400))

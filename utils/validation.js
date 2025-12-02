@@ -1,5 +1,5 @@
 import { body } from 'express-validator';
-import { emailRegex, mobileRegex } from './regexConstant.js';
+import { emailRegex, mobileRegex, usernameRegex } from './regexConstant.js';
 
 // Validation for User Registration
 const registerValidation = [
@@ -23,15 +23,25 @@ const changeAuthRequestValidation = [
 
 // Validation for User Login
 const loginValidation = [
-    body('login')
-    .notEmpty().withMessage('Email or mobile is required')
-    .custom(value => {
-        if (!emailRegex.test(value) && !mobileRegex.test(value)) {
-            throw new Error('Invalid email or mobile number format');
-        }
-        return true; // If validation passes
+  body("login")
+    .notEmpty()
+    .withMessage("Email / Mobile / Username is required")
+    .custom((value) => {
+      const isEmail = emailRegex.test(value);
+      const isMobile = mobileRegex.test(value);
+      const isUsername = usernameRegex.test(value);
+
+      // If none match → invalid
+      if (!isEmail && !isMobile && !isUsername) {
+        throw new Error("Invalid Email / Mobile / Username format");
+      }
+
+      return true;
     }),
-    body('password').notEmpty().withMessage('Password is required'),
+
+  body("password")
+    .notEmpty()
+    .withMessage("Password is required"),
 ];
 
 //validation for change password

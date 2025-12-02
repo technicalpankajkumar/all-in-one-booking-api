@@ -7,9 +7,9 @@ const authRoute = Router();
 
 
 authRoute.post('/register',registerValidation,validationMiddlewre, register)
+.post('/activate-account', activateUser)
 .post('/login',loginValidation,validationMiddlewre, login)
 .post('/logout',authMiddleware, logout)
-.post('/activate-account', activateUser)
 .put('/forget-password', forgetPasswordValidation,validationMiddlewre,forgetPassword)
 .put('/change-password',changePasswordValidation, validationMiddlewre,authMiddleware , changePassword)
 .put('/request-change-auth', changeAuthRequestValidation, validationMiddlewre, authMiddleware,changeAuthRequest)

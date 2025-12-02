@@ -19,14 +19,13 @@ const sendMail = CatchAsyncError(async (options)=>{
             pass:process.env.SMTP_PASSWORD
         },
     });
-
     const {email,subject,template,data}=options;
     //get the pdath to the email template file
     const templatePath = path.join(__dirname,'../mail_templates',template)
-
+    
     //render the email template with EJS
     const html = await ejs.renderFile(templatePath,data);
-
+    
     const mailOptions = {
         from:process.env.SMTP_MAIL,
         to:email,
@@ -34,6 +33,7 @@ const sendMail = CatchAsyncError(async (options)=>{
         html,
     }
     await transporter.sendMail(mailOptions);
+    console.log('we here')
 })
 
 export default sendMail;

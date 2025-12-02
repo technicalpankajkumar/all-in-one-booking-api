@@ -15,12 +15,16 @@ app.use(cookieParser());
 
 // CORS configuration to allow all origins
 const corsOptions = {
-    origin: '*', // Allow all origins or specify your allowed origins
+    origin: 'http://localhost:8080', // Allow all origins or specify your allowed origins
     methods: ['GET', 'POST', 'PUT', 'DELETE', 'OPTIONS'],
     allowedHeaders: ['X-CSRF-Token', 'X-Requested-With', 'Accept', 'Content-Type'],
     credentials: true // Allow credentials if needed
   };
 app.use(cors(corsOptions));
+app.use((req, res, next) => {
+  res.header("Access-Control-Allow-Credentials", "true");
+  next();
+});
 
 app.use('/api/v1/auth', authRoutes);
 app.use('/api/v1/user', userRoutes);
