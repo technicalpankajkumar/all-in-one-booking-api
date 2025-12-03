@@ -1,9 +1,13 @@
 import { db } from "../config/db.js";
 import { CatchAsyncError } from "../utils/catchAsyncError.js";
 import fs from "fs";
+import ErrorHandler from "../utils/errorHandler.js";
 
-export const createDriver = CatchAsyncError(async (req, res) => {
+export const createDriver = CatchAsyncError(async (req, res,next) => {
   try{
+    const {data} = req.body;
+    const newData = typeof data == 'object' ? data : JSON.parse(data)
+
     const {
     full_name,
     father_name,
@@ -30,9 +34,18 @@ export const createDriver = CatchAsyncError(async (req, res) => {
     languages_known,
     emergency_contact_name,
     emergency_contact_number,
-    emergency_contact_relation
-  } = req.body;
+    emergency_contact_relation,
+    assigned_car_id
+  } = newData;
 
+
+
+   const dataExist = await db.driver.findUnique({
+     where: { email,mobile }
+   });
+   if(dataExist){
+        return next(new ErrorHandler('This email/mobile already exist.', 400))
+    }
   // Create Driver
   const driver = await db.driver.create({
     data: {
@@ -58,13 +71,14 @@ export const createDriver = CatchAsyncError(async (req, res) => {
       account_holder_name,
       upi_id,
       experience_years: Number(experience_years),
-      languages_known: languages_known ? JSON.parse(languages_known) : [],
+      languages_known: languages_known ? languages_known : [],
       emergency_contact_name,
       emergency_contact_number,
-      emergency_contact_relation
+      emergency_contact_relation,
+      assigned_car_id
     }
   });
-
+  console.log(newData,'ndw')
   // Save uploaded images
   const files = req.files ?? [];
   const allFiles = Object.keys(files);
@@ -91,9 +105,9 @@ export const createDriver = CatchAsyncError(async (req, res) => {
 }
 });
 
-export const getDriver = CatchAsyncError( async (req, res) => {
+export const getDriver = CatchAsyncError( async (req, res,next) => {
   try {
-    const drivers = await db.driver.findMany({ include: { Car: true } });
+    const drivers = await db.driver.findMany({ include: { Car: true ,images:true} });
     res.status(200).json({ success: true, drivers });
   } catch (err) {
     next(new ErrorHandler(err.message, 500))
@@ -106,7 +120,7 @@ export const getDriverById = CatchAsyncError(async (req, res) => {
 
   const driver = await db.driver.findUnique({
     where: { id },
-    include: { images: true }
+    include: { images: true, Car:true }
   });
 
   if (!driver) {
@@ -118,7 +132,6 @@ export const getDriverById = CatchAsyncError(async (req, res) => {
   next(new ErrorHandler(err.message, 500))
 }
 });
-
 
 export const deleteDriverImage = CatchAsyncError(async (req, res) => {
  try {
@@ -140,7 +153,6 @@ export const deleteDriverImage = CatchAsyncError(async (req, res) => {
   next(new ErrorHandler(err.message, 500))
 }
 });
-
 
 export const updateDriver = CatchAsyncError(async (req, res) => {
   try{

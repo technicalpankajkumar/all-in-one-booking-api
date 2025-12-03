@@ -83,7 +83,7 @@ model Car {
   is_available  Boolean      @default(true)
   features      CarFeatures?
   images        CarImage[]
-  driver        Driver?
+  drivers       Driver[]   // ✨ Many drivers assigned to this car
   bookings      Booking[]
   created_at    DateTime     @default(now())
   updated_at    DateTime     @updatedAt
@@ -120,7 +120,7 @@ model Driver {
   alternate_mobile     String?
   dob                  DateTime?
   gender               String?
-  assigned_car_id      String? @unique @db.ObjectId
+  assigned_car_id      String? @db.ObjectId
   Car                  Car?     @relation(fields: [assigned_car_id], references: [id])
   bookings             Booking[]
 
