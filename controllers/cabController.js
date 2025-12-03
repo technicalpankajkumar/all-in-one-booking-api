@@ -1,18 +1,30 @@
 import { db } from "../config/db.js";
 import { CatchAsyncError } from "../utils/catchAsyncError.js";
+import ErrorHandler from "../utils/errorHandler.js";
 
 
-export const createCab = CatchAsyncError( async (req,res,next)=>{
+export const createCab = CatchAsyncError(async (req, res, next) => {
   try {
+    const {data} = req.body;
+    const newData = typeof data == 'object' ? data : JSON.parse(data)
     const {
       car_name, car_type, fuel_type, seat_capacity, bag_capacity,
       base_price, price_unit, description, is_available,
       features // optional object { ac, gps, music_system, automatic_transmission }
-    } = req.body;
+    } = newData;
 
     // Basic validation
     if (!car_name || !car_type || !seat_capacity || !base_price || !price_unit) {
       return res.status(400).json({ error: 'Missing required fields' });
+    }
+
+    const existCar = await db.car.findFirst({
+      where: {
+        car_name
+      }
+    });
+    if(existCar){
+        return next(new ErrorHandler('This name car already exist.', 400))
     }
 
     const car = await db.car.create({
@@ -30,8 +42,9 @@ export const createCab = CatchAsyncError( async (req,res,next)=>{
     });
 
     // create features if provided
+    let feature = {}
     if (features && typeof features === 'object') {
-      await db.carFeatures.create({
+      feature = await db.carFeatures.create({
         data: {
           car_id: car.id,
           ac: Boolean(features.ac),
@@ -42,42 +55,111 @@ export const createCab = CatchAsyncError( async (req,res,next)=>{
       });
     }
 
-    res.status(201).json({ success: true, car });
-  } catch (err) {
-    console.error('POST /cars', err);
-    res.status(500).json({ error: 'Server error', detail: err.message });
-  }
-});
-
-// Upload image(s) for a car
-export const UploadCabImage = CatchAsyncError( async (req,res,next)=>{
-  try {
-    const { carId } = req.params;
-    const car = await prisma.car.findUnique({ where: { id: carId } });
-    if (!car) return res.status(404).json({ error: 'Car not found' });
-
+    // 2) Upload Images if exists
     const files = req.files || [];
-    const created = [];
+
     for (const file of files) {
-      const url = `/uploads/${file.filename}`;
-      const image = await prisma.carImage.create({
+      await db.carImage.create({
         data: {
-          car_id: carId,
-          image_url: url,
-          is_main: false
+          car_id: car.id,
+          image_url: `/uploads/${file.filename}`
         }
       });
-      created.push(image);
     }
-
-    res.status(201).json({ success: true, uploaded: created });
+    res.status(201).json({ success: true, car: { ...car, features: feature } });
   } catch (err) {
-    console.error('POST /cars/:carId/images', err);
-    res.status(500).json({ error: 'Server error', detail: err.message });
+    return next(new ErrorHandler(err.message, 500))
   }
 });
 
- export const getCabs = CatchAsyncError( async (req,res,next)=>{
+export const updateCabById = CatchAsyncError(async (req, res,next) => {
+  try {
+    const { cabId } = req.params;
+
+    
+    const existing = await db.car.findUnique({ where: { id: cabId } });
+    if (!existing) return res.status(404).json({ error: "Car not found" });
+
+    const {data,deletedImages} = req.body;
+    const {features,...dataToUpdate} = typeof data == 'object' ? data : JSON.parse(data)
+
+    // Update base info
+    const updatedCar = await db.car.update({
+      where: { id: cabId },
+      data: dataToUpdate
+    });
+
+    const featuresExist = await db.carFeatures.findUnique({ where: { car_id: cabId } });
+    if (features && typeof features === 'object'&& featuresExist) {
+      await db.carFeatures.update({
+        where: { car_id: cabId },
+        data: {
+          ac: Boolean(features.ac),
+          gps: Boolean(features.gps),
+          music_system: Boolean(features.music_system),
+          automatic_transmission: Boolean(features.automatic_transmission)
+        }
+      });
+    }
+
+    const parsedDeletedImages =
+      typeof deletedImages === "object"
+        ? deletedImages
+        : deletedImages
+        ? JSON.parse(deletedImages)
+        : [];
+
+    // -----------------------------
+    //  IMAGE UPDATE HANDLING
+    // -----------------------------
+    const files = req.files || [];
+
+    /** STEP 1: Delete images that user removed in UI */
+    if (parsedDeletedImages.length > 0) {
+      await db.carImage.deleteMany({
+        where: {
+          id: {
+            in: parsedDeletedImages,
+          },
+        },
+      });
+    }
+
+    /** STEP 2: Check how many images exist now */
+    const remainingImages = await db.carImage.count({
+      where: { car_id: cabId },
+    });
+
+    /** STEP 3: Validate total images limit (max 6) */
+    if (remainingImages + files.length > 6) {
+      return res.status(400).json({
+        error: `Maximum 6 images allowed. You already have ${remainingImages}.`,
+      });
+    }
+
+    /** STEP 4: Add new uploaded images */
+    for (const file of files) {
+      await db.carImage.create({
+        data: {
+          car_id: cabId,
+          image_url: `/uploads/${file.filename}`,
+        },
+      });
+    }
+
+    /** STEP 5: Return updated list */
+    const updatedImages = await db.carImage.findMany({
+      where: { car_id: cabId },
+    });
+
+    res.json({ success: true, updatedCar,updatedImages });
+
+  } catch (error) {
+    return next(new ErrorHandler(error.message, 500))
+  }
+});
+
+export const getCabs = CatchAsyncError(async (req, res, next) => {
   try {
     const cars = await db.car.findMany({
       include: {
@@ -88,52 +170,35 @@ export const UploadCabImage = CatchAsyncError( async (req,res,next)=>{
     });
     res.json({ success: true, cars });
   } catch (err) {
-    console.error('GET /cars', err);
-    res.status(500).json({ error: 'Server error' });
+    return next(new ErrorHandler(err.message, 500))
   }
 });
 
-export const getCabById = CatchAsyncError( async (req,res,next)=>{
+
+export const getCabById = CatchAsyncError(async (req, res, next) => {
   try {
     const car = await db.car.findUnique({
-      where: { id: req.params.carId },
+      where: { id: req.params.cabId },
       include: { features: true, images: true, driver: true }
     });
     if (!car) return res.status(404).json({ error: 'Not found' });
     res.status(200).status(200).json({ success: true, car });
   } catch (err) {
-    res.status(500).json({ error: 'Server error' });
+    return next(new ErrorHandler(err.message, 500))
   }
 });
 
-export const updateCabById = CatchAsyncError( async (req,res,next)=>{
-  try {
-    const data = req.body;
-    if (data.seat_capacity) data.seat_capacity = Number(data.seat_capacity);
-    if (data.base_price) data.base_price = parseFloat(data.base_price);
 
-    const car = await db.car.update({
-      where: { id: req.params.carId },
-      data
-    });
-    res.json({ success: true, car });
-  } catch (err) {
-    console.error('PUT /cars/:carId', err);
-    res.status(500).json({ error: 'Server error', detail: err.message });
-  }
-});
-
-export const deleteCabById = CatchAsyncError( async (req,res,next)=>{
+export const deleteCabById = CatchAsyncError(async (req, res, next) => {
   try {
-    const carId = req.params.carId;
-    await db.carImage.deleteMany({ where: { car_id: carId } });
-    await db.carFeatures.deleteMany({ where: { car_id: carId } });
+    const cabId = req.params.cabId;
+    await db.carImage.deleteMany({ where: { car_id: cabId } });
+    await db.carFeatures.deleteMany({ where: { car_id: cabId } });
     // unassign driver if any
-    await db.driver.updateMany({ where: { assigned_car_id: carId }, data: { assigned_car_id: null } });
-    await db.car.delete({ where: { id: carId } });
+    await db.driver.updateMany({ where: { assigned_car_id: cabId }, data: { assigned_car_id: null } });
+    await db.car.delete({ where: { id: cabId } });
     res.json({ success: true });
   } catch (err) {
-    console.error('DELETE /cars/:carId', err);
-    res.status(500).json({ error: 'Server error', detail: err.message });
+   return next(new ErrorHandler(err.message, 500))
   }
 });

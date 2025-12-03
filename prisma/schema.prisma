@@ -15,7 +15,11 @@ enum Role {
   TOUR_GUIDE    // tour guide
   USER          // normal customer
 }
-
+enum PriceUnit {
+   per_trip
+   per_km
+   per_day
+}
 // Auth model
 model Auth {
   id                String   @id @default(auto()) @map("_id") @db.ObjectId
@@ -74,7 +78,7 @@ model Car {
   seat_capacity Int
   bag_capacity  Int
   base_price    Float
-  price_unit    String       // per_trip, per_km, per_day
+  price_unit    PriceUnit     @default(per_km)     // per_trip, per_km, per_day
   description   String?
   is_available  Boolean      @default(true)
   features      CarFeatures?

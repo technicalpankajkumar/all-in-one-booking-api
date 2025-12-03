@@ -112,6 +112,19 @@ export const login  = CatchAsyncError( async (req, res,next)=> {
         
         const isMatch = await authService.comparePassword(password, user.password);
         if (!isMatch) return next(new ErrorHandler('Invalid credentials', 400));
+
+         // CHECK: already logged in?
+        const existingToken = await authService.getRefreshToken(user.id);
+
+        if (existingToken) {
+            // invalidate old session
+            await authService.deleteRefreshToken(user.id);
+
+            // clear old cookies (important)
+            res.clearCookie("token");
+            res.clearCookie("refreshToken");
+        }
+        
         const token =  authService.signAccessToken({id:user.id});
         
         const refresh_token = authService.signRefreshToken({id:user.id});
