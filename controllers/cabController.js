@@ -165,7 +165,7 @@ export const getCabs = CatchAsyncError(async (req, res, next) => {
       include: {
         features: true,
         images: true,
-        driver: true
+        drivers: true
       }
     });
     res.json({ success: true, cars });
@@ -179,7 +179,7 @@ export const getCabById = CatchAsyncError(async (req, res, next) => {
   try {
     const car = await db.car.findUnique({
       where: { id: req.params.cabId },
-      include: { features: true, images: true, driver: true }
+      include: { features: true, images: true, drivers: true }
     });
     if (!car) return res.status(404).json({ error: 'Not found' });
     res.status(200).status(200).json({ success: true, car });
