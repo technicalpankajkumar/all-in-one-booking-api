@@ -11,15 +11,14 @@ export const createDriver = CatchAsyncError( async (req, res) => {
         phone,
         license_number,
         address,
-        rating: rating ? Number(rating) : undefined,
+        rating: rating ? Number.parseFloat(rating) : undefined,
         assigned_car_id: assigned_car_id || null
       }
     });
 
     res.status(200).json({ success: true, driver });
   } catch (err) {
-    console.error('POST /drivers', err);
-    res.status(500).json({ error: 'Server error', detail: err.message });
+     next(new ErrorHandler(err.message, 500))
   }
 });
 
@@ -29,7 +28,6 @@ export const getDriver = CatchAsyncError( async (req, res) => {
     const drivers = await db.driver.findMany({ include: { Car: true } });
     res.status(200).json({ success: true, drivers });
   } catch (err) {
-    console.error('GET /drivers', err);
-    res.status(500).json({ error: 'Server error' });
+    next(new ErrorHandler(err.message, 500))
   }
 });

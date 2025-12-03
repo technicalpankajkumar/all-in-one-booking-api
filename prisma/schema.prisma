@@ -110,18 +110,78 @@ model CarImage {
 // -------------------------------------------------------------
 // DRIVER MODEL
 // -------------------------------------------------------------
+
 model Driver {
-  id             String   @id @default(auto()) @map("_id") @db.ObjectId
-  driver_name    String
-  phone          String
-  license_number String?
-  address        String?
-  rating         Float?   @default(0)
-  assigned_car_id String? @unique @db.ObjectId
-  Car            Car?     @relation(fields: [assigned_car_id], references: [id])
-  bookings       Booking[]
-  created_at     DateTime @default(now())
-  updated_at     DateTime @updatedAt
+  id                   String   @id @default(auto()) @map("_id") @db.ObjectId
+  full_name            String
+  father_name          String?
+  email                String   @unique
+  mobile               String   @unique
+  alternate_mobile     String?
+  dob                  DateTime?
+  gender               String?
+  assigned_car_id      String? @unique @db.ObjectId
+  Car                  Car?     @relation(fields: [assigned_car_id], references: [id])
+  bookings             Booking[]
+
+  images              DriverImage[]
+  current_address      String?
+  permanent_address    String?
+  city                 String?
+  state                String?
+  pincode              String?
+
+  aadhar_number        String?
+  pan_number           String?
+  driving_license_number String?
+  driving_license_expiry  DateTime?
+
+  bank_account_number  String?
+  bank_ifsc            String?
+  bank_name            String?
+  account_holder_name  String?
+  upi_id               String
+
+  experience_years     Int? @default(0)
+  languages_known      String[] @default([])
+
+  availability_status  String   @default("offline")
+  preferred_city       String?
+  preferred_service_area Int? @default(5)
+
+  rating               Float @default(5.0)
+  total_rides          Int @default(0)
+  cancellation_rate    Float @default(0.0)
+
+  emergency_contact_name    String?
+  emergency_contact_number  String?
+  emergency_contact_relation String?
+
+  created_at           DateTime @default(now())
+  updated_at           DateTime @updatedAt
+}
+
+enum ImageType {
+   pan
+   profile
+   signature
+   aadhar_front
+   aadhar_back
+   driving_license_front
+   driving_license_back
+   health_insurance
+   term_insurance
+}
+
+model DriverImage {
+  id           String   @id @default(auto()) @map("_id") @db.ObjectId
+  driver_id    String   @db.ObjectId
+  driver       Driver   @relation(fields: [driver_id], references: [id])
+
+  image_type   String    // profile, aadhar_front, aadhar_back, license_front, license_back, rc, insurance, etc.
+  image_path   String    // "/uploads/driver/xyz.jpg" or "/uploads/docs/abc.png"
+
+  created_at   DateTime  @default(now())
 }
 
 // -------------------------------------------------------------
