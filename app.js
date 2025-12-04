@@ -10,6 +10,7 @@ import driverRoute from './routes/driverRoute.js';
 import policyRoute from './routes/policyRoute.js';
 import bookingRoute from './routes/bookingRoute.js';
 import transactionRoute from './routes/transactionRoute.js';
+import { registerUploadFolder } from './utils/multer.js';
 export const app = express();
 
 //body parser
@@ -26,7 +27,7 @@ const corsOptions = {
   };
   
 app.use(cors(corsOptions));
-
+registerUploadFolder(app);
 app.use('/api/v1/auth', authRoutes);
 app.use('/api/v1/user', userRoutes);
 app.use('/api/v1/cab', cabRoute);
