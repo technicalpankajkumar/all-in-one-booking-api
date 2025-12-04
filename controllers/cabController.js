@@ -57,14 +57,18 @@ export const createCab = CatchAsyncError(async (req, res, next) => {
 
     // 2) Upload Images if exists
     const files = req.files || [];
+    let isFirst = true; // flag for first image
 
     for (const file of files) {
       await db.carImage.create({
         data: {
           car_id: car.id,
-          image_url: `/uploads/${file.filename}`
+          image_url: `/uploads/${file.filename}`,
+          is_main: isFirst   // true only for first loop
         }
       });
+
+      isFirst = false; // next images become false
     }
     res.status(201).json({ success: true, car: { ...car, features: feature } });
   } catch (err) {
