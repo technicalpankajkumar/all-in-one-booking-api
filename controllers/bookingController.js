@@ -62,13 +62,30 @@ export const createBooking = CatchAsyncError(async (req, res, next) => {
       distance_km,
       total_price,
       travel_date,
-      payment_method
+      travel_time,
+      trip_type,
+      payment_method,
+      passengers
     } = req.body;
+console.log("I am here", req.body)
+  //  console.log({
+  //       user_id: userId,
+  //       car_id,
+  //       driver_id: driver_id || undefined,
+  //       from_location,
+  //       to_location,
+  //       distance_km,
+  //       total_price,
+  //       // travel_date: new Date(travel_date).toISOString(),
+  //       // travel_time,
+  //       trip_type,
+  //       passengers,
+  //       payment_method,
+  //       payment_status: "Pending",
+  //       booking_status: "Booked"
+  //     })
 
-    if (!car_id || !from_location || !to_location || !distance_km || !total_price || !travel_date) {
-      return next(new ErrorHandler("Missing required fields", 400));
-    }
-
+      return
     const booking = await db.booking.create({
       data: {
         user_id: userId,
@@ -78,7 +95,10 @@ export const createBooking = CatchAsyncError(async (req, res, next) => {
         to_location,
         distance_km,
         total_price,
-        travel_date: new Date(travel_date),
+        travel_date: new Date(travel_date).toISOString(),
+        // travel_time,
+        trip_type,
+        passengers,
         payment_method,
         payment_status: "Pending",
         booking_status: "Booked"
@@ -135,6 +155,8 @@ export const getBookingById = CatchAsyncError(async (req, res, next) => {
     next(new ErrorHandler(err.message, 500));
   }
 });
+
+
 
 
 

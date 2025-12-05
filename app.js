@@ -13,15 +13,21 @@ import transactionRoute from './routes/transactionRoute.js';
 import { registerUploadFolder } from './utils/multer.js';
 export const app = express();
 
+// Parse JSON
+app.use(express.json());
+
+// Parse form-data (URL encoded)
+app.use(express.urlencoded({ extended: true }));
+
 //body parser
-app.use(json({limit:'50mb'}));
+// app.use(json({limit:'50mb'}));
 
 //cookie parser
 app.use(cookieParser());
 
 // CORS configuration to allow all origins
 const corsOptions = {
-    origin: 'http://localhost:8080', // Allow all origins or specify your allowed origins
+    origin: '*', // Allow all origins or specify your allowed origins
     methods: ['GET', 'POST', 'PUT', 'DELETE', 'OPTIONS'],
     credentials: true // Allow credentials if needed
   };
