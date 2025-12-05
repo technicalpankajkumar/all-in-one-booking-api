@@ -20,7 +20,7 @@ app.use(express.json());
 app.use(express.urlencoded({ extended: true }));
 
 //body parser
-// app.use(json({limit:'50mb'}));
+app.use(json({limit:'50mb'}));
 
 //cookie parser
 app.use(cookieParser());

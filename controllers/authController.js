@@ -134,7 +134,7 @@ export const login  = CatchAsyncError( async (req, res,next)=> {
         res.cookie('token', token, { httpOnly: true, secure: process.env.NODE_ENV === 'production' });
         res.cookie('refreshToken', refresh_token, { httpOnly: true, secure: process.env.NODE_ENV === 'production' });
 
-       return res.status(200).send({ data:{token,refresh_token, name : user.name , email :user.email , mobile : user.mobile},success:true });
+       return res.status(200).send({ data:{token,refresh_token, name : user.name , email :user.email , mobile : user.mobile,role:user.role},success:true });
 
     } catch (error) {
         return next(new ErrorHandler(error.message, 400))
