@@ -67,25 +67,7 @@ export const createBooking = CatchAsyncError(async (req, res, next) => {
       payment_method,
       passengers
     } = req.body;
-console.log("I am here", req.body)
-  //  console.log({
-  //       user_id: userId,
-  //       car_id,
-  //       driver_id: driver_id || undefined,
-  //       from_location,
-  //       to_location,
-  //       distance_km,
-  //       total_price,
-  //       // travel_date: new Date(travel_date).toISOString(),
-  //       // travel_time,
-  //       trip_type,
-  //       passengers,
-  //       payment_method,
-  //       payment_status: "Pending",
-  //       booking_status: "Booked"
-  //     })
-
-      return
+      // return
     const booking = await db.booking.create({
       data: {
         user_id: userId,
