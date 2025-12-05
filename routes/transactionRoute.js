@@ -1,8 +1,10 @@
 import { Router } from 'express';
-import { createTransaction } from '../controllers/transactionContnroller.js';
+import { createPayment, getPayment } from '../controllers/transactionContnroller.js';
 import { authMiddleware } from '../middlewares/authMiddleware.js';
 const transactionRoute = Router();
 
-transactionRoute.post('/create-transaction', authMiddleware,createTransaction)
+transactionRoute
+.post("/create/:bookingId", authMiddleware, createPayment)
+.get("/get/:bookingId", authMiddleware, getPayment);
 
 export default transactionRoute;

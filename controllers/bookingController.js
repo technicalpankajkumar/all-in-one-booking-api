@@ -1,6 +1,6 @@
 import { db } from "../config/db.js";
 import { CatchAsyncError } from "../utils/catchAsyncError.js";
-
+import ErrorHandler from "../utils/errorHandler.js";
 
 // price calculation helper
 function calculatePrice({ distance_km, car, extraKmCharge, included_km, days }) {
@@ -23,73 +23,118 @@ function calculatePrice({ distance_km, car, extraKmCharge, included_km, days }) 
   return Number(car.base_price);
 }
 
-export const createBooking= CatchAsyncError( async (req, res) => {
-      /*
-  Expected body:
-  {
-    user_id, car_id, from_location, to_location,
-    distance_km, travel_date, payment_method,
-    driver_id (optional),
-    extraKmCharge (optional), included_km (optional), days (optional)
-  }
-  */
+export const cancelBooking = CatchAsyncError(async (req, res, next) => {
   try {
-    const {
-      user_id, car_id, from_location, to_location,
-      distance_km, travel_date, payment_method, driver_id,
-      extraKmCharge, included_km, days
-    } = req.body;
+    const { id } = req.params;
 
-    if (!user_id || !car_id || !from_location || !to_location || distance_km === undefined) {
-      return res.status(400).json({ error: 'Missing required fields' });
+    const booking = await db.booking.findUnique({ where: { id } });
+
+    if (!booking) return next(new ErrorHandler("Booking not found", 404));
+
+    if (booking.booking_status === "Cancelled") {
+      return next(new ErrorHandler("Booking already cancelled", 400));
     }
 
-    // fetch car
-    const car = await db.car.findUnique({ where: { id: car_id }});
-    if (!car) return res.status(404).json({ error: 'Car not found' });
-
-    const total_price = calculatePrice({
-      distance_km: parseFloat(distance_km),
-      car,
-      extraKmCharge,
-      included_km,
-      days
+    const updated = await db.booking.update({
+      where: { id },
+      data: { booking_status: "Cancelled" }
     });
+
+    res.json({
+      success: true,
+      message: "Booking cancelled successfully",
+      booking: updated
+    });
+  } catch (err) {
+    next(new ErrorHandler(err.message, 500));
+  }
+});
+
+
+export const createBooking = CatchAsyncError(async (req, res, next) => {
+  try {
+    const userId = req.user.id; // from auth middleware
+    const {
+      car_id,
+      driver_id,
+      from_location,
+      to_location,
+      distance_km,
+      total_price,
+      travel_date,
+      payment_method
+    } = req.body;
+
+    if (!car_id || !from_location || !to_location || !distance_km || !total_price || !travel_date) {
+      return next(new ErrorHandler("Missing required fields", 400));
+    }
 
     const booking = await db.booking.create({
       data: {
-        user_id,
+        user_id: userId,
         car_id,
-        driver_id: driver_id || null,
+        driver_id: driver_id || undefined,
         from_location,
         to_location,
-        distance_km: parseFloat(distance_km),
-        total_price: parseFloat(total_price),
+        distance_km,
+        total_price,
         travel_date: new Date(travel_date),
         payment_method,
-        payment_status: 'Pending',
-        booking_status: 'Confirmed'
+        payment_status: "Pending",
+        booking_status: "Booked"
       }
     });
 
-    res.json({ success: true, booking });
+    return res.status(201).json({
+      success: true,
+      message: "Booking created successfully",
+      booking
+    });
   } catch (err) {
-    console.error('POST /bookings', err);
-    res.status(500).json({ error: err.message });
+    next(new ErrorHandler(err.message, 500));
   }
 });
 
-// Get bookings for user
-export const getBookings= CatchAsyncError( async (req, res) => {
+
+export const getAllBookings = CatchAsyncError(async (req, res, next) => {
   try {
-    const { userId } = req.params;
-    const bookings = await prisma.booking.findMany({
-      where: { user_id: userId },
-      include: { car: true, driver: true, transaction: true }
+    const bookings = await db.booking.findMany({
+      include: {
+        car: true,
+        driver: true,
+        auth: true,
+        transaction: true
+      }
     });
+
     res.json({ success: true, bookings });
   } catch (err) {
-    console.error('GET /users/:userId/bookings', err);
-    res.status(500).json({ error: err.message });
+    next(new ErrorHandler(err.message, 500));
   }
 });
+
+
+export const getBookingById = CatchAsyncError(async (req, res, next) => {
+  try {
+    const { id } = req.params;
+
+    const booking = await db.booking.findUnique({
+      where: { id },
+      include: {
+        car: true,
+        driver: true,
+        auth: true,
+        transaction: true
+      }
+    });
+
+    if (!booking) return next(new ErrorHandler("Booking not found", 404));
+
+    res.json({ success: true, booking });
+  } catch (err) {
+    next(new ErrorHandler(err.message, 500));
+  }
+});
+
+
+

@@ -2,38 +2,54 @@ import { db } from "../config/db.js";
 import { CatchAsyncError } from "../utils/catchAsyncError.js";
 
 
-export const createTransaction = CatchAsyncError( async (req, res) => {
-  /*
-    Expected body: { booking_id, amount, status, payment_gateway }
-  */
+export const createPayment = CatchAsyncError(async (req, res, next) => {
   try {
-    const { booking_id, amount, status, payment_gateway } = req.body;
-    if (!booking_id || !amount) return res.status(400).json({ error: 'Missing booking_id or amount' });
+    const { bookingId } = req.params;
+    const { amount, status, payment_gateway } = req.body;
 
-    // ensure booking exists
-    const booking = await db.booking.findUnique({ where: { id: booking_id }});
-    if (!booking) return res.status(404).json({ error: 'Booking not found' });
+    const booking = await db.booking.findUnique({ where: { id: bookingId } });
+    if (!booking) return next(new ErrorHandler("Booking not found", 404));
 
-    // create transaction and mark booking payment_status
-    const tx = await db.transaction.create({
+    const transaction = await db.transaction.create({
       data: {
-        booking_id,
-        amount: parseFloat(amount),
-        status: status || 'pending',
+        booking_id: bookingId,
+        amount,
+        status,
         payment_gateway
       }
     });
 
-    // update booking payment_status based on tx status
-    const newStatus = (status && status.toLowerCase() === 'success') ? 'Paid' : 'Pending';
     await db.booking.update({
-      where: { id: booking_id },
-      data: { payment_status: newStatus }
+      where: { id: bookingId },
+      data: {
+        payment_status: status === "success" ? "Paid" : "Pending"
+      }
     });
 
-    res.json({ success: true, tx });
+    res.json({
+      success: true,
+      message: "Payment recorded successfully",
+      transaction
+    });
   } catch (err) {
-    console.error('POST /transactions', err);
-    res.status(500).json({ error: err.message });
+    next(new ErrorHandler(err.message, 500));
   }
 });
+
+export const getPayment = CatchAsyncError(async (req, res, next) => {
+  try {
+    const { bookingId } = req.params;
+
+    const transaction = await db.transaction.findUnique({
+      where: { booking_id: bookingId }
+    });
+
+    res.json({
+      success: true,
+      transaction
+    });
+  } catch (err) {
+    next(new ErrorHandler(err.message, 500));
+  }
+});
+

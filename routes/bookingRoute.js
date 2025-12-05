@@ -1,10 +1,12 @@
 import { Router } from 'express';
 import {authMiddleware} from '../middlewares/authMiddleware.js';
-import { createBooking, getBookings } from '../controllers/bookingController.js';
+import { cancelBooking, createBooking, getAllBookings, getBookingById } from '../controllers/bookingController.js';
 const bookingRoute = Router();
 
 bookingRoute
-.post('/create-booking',authMiddleware,createBooking)
-.get('/:userId/bookings',authMiddleware,getBookings)
+.post("/create", authMiddleware, createBooking)
+.get("/", authMiddleware, getAllBookings)
+.get("/:id", authMiddleware, getBookingById)
+.put("/:id/cancel", authMiddleware, cancelBooking)
 
 export default bookingRoute;
