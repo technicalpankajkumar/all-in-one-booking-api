@@ -1,6 +1,6 @@
 import { Router } from 'express';
 import { authMiddleware } from '../middlewares/authMiddleware.js';
-import { createDriver, deleteDriverImage, getDriver, getDriverById, updateDriver } from '../controllers/driverController.js';
+import { createDriver, deleteDriver, deleteDriverImage, getDriver, getDriverById, updateDriver } from '../controllers/driverController.js';
 import { uploadDriver } from '../utils/multer.js';
 const driverRoute = Router();
 
@@ -16,7 +16,7 @@ driverRoute
         { name: "health_insurance", maxCount: 1 },
         { name: "term_insurance", maxCount: 1 }
     ]), createDriver)
-    .put("/:driverId",
+    .put("/update/:driverId",
         uploadDriver.fields([
             { name: "profile", maxCount: 1 },
             { name: "aadhar_front", maxCount: 1 },
@@ -29,6 +29,7 @@ driverRoute
         ]),
         updateDriver)
     .get("/:id", getDriverById)
+    .delete("/:id",deleteDriver)
     .delete("/:imageId", deleteDriverImage)
 
 export default driverRoute;

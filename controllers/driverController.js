@@ -114,13 +114,17 @@ export const getDriver = CatchAsyncError( async (req, res,next) => {
   }
 });
 
-export const getDriverById = CatchAsyncError(async (req, res) => {
+export const getDriverById = CatchAsyncError(async (req, res,next) => {
   try{
     const { id } = req.params;
 
   const driver = await db.driver.findUnique({
     where: { id },
-    include: { images: true, Car:true }
+    include: { images: true,  Car: {
+      include: {
+        images: true        // car images
+      }
+    } }
   });
 
   if (!driver) {
@@ -154,7 +158,7 @@ export const deleteDriverImage = CatchAsyncError(async (req, res) => {
 }
 });
 
-export const updateDriver = CatchAsyncError(async (req, res) => {
+export const updateDriver = CatchAsyncError(async (req, res,next) => {
   try{
   const { driverId } = req.params;
 
@@ -210,3 +214,44 @@ export const updateDriver = CatchAsyncError(async (req, res) => {
   next(new ErrorHandler(err.message, 500))
 }
 });
+
+export const deleteDriver = async (req, res, next) => {
+  try {
+    const { id } = req.params;
+
+    const driver = await db.driver.findUnique({
+      where: { id },
+      include: { images: true }
+    });
+
+    if (!driver) {
+      return next(new ErrorHandler("Driver not found", 404));
+    }
+
+    for (const img of driver.images) {
+      if (img.image_path) {
+        const filePath = path.join(process.cwd(), img.image_path.replace("/uploads", "uploads"));
+
+        if (fs.existsSync(filePath)) {
+          fs.unlinkSync(filePath);
+        }
+      }
+    }
+
+    await db.driverImage.deleteMany({
+      where: { driver_id: id }
+    });
+
+    await db.driver.delete({
+      where: { id }
+    });
+
+    return res.json({
+      success: true,
+      message: "Driver deleted successfully"
+    });
+
+  } catch (err) {
+    return next(new ErrorHandler(err.message, 500));
+  }
+};
