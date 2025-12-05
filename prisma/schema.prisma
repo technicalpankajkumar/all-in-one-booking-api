@@ -216,6 +216,9 @@ model Booking {
   total_price    Float
   booking_time   DateTime  @default(now())
   travel_date    DateTime
+  travel_time    String?    // ⬅ added (e.g. "3 hr 25 min")
+  trip_type      String     // "one_way" or "round_trip"
+  passengers     Json?      // ⬅ ADDED — array of passenger objects
   payment_method String     // Cash, UPI, Card
   payment_status String     // Paid, Pending
   booking_status String     // Confirmed, Cancelled, Completed ,Booked
