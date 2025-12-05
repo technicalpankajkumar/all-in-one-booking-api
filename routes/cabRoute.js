@@ -6,7 +6,7 @@ const cabRoute = Router();
 
 cabRoute.post('/create', authMiddleware,uploadFile.array('images', 6),createCab)
 .put('/:cabId', authMiddleware,uploadFile.array('images', 6),updateCabById)
-.get('/', authMiddleware,getCabs)
+.get('/',getCabs)
 .get('/:cabId', authMiddleware,getCabById)
 .delete('/:cabId', authMiddleware,deleteCabById)
 .put('/edit', authMiddleware)
