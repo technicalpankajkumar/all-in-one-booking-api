@@ -12,7 +12,7 @@ enum Role {
   ADMIN         // admin users
   MANAGER       // manage bookings, staff
   DRIVER        // drivers
-  TOUR_GUIDE    // tour guide
+  GUIDER        // guider
   USER          // normal customer
 }
 
@@ -37,6 +37,7 @@ model Auth {
   profile           Profile?
   driver            Driver?
   guider            Guider?
+  booking           Booking[]
 }
 
 model TokenBlacklist {
@@ -61,7 +62,7 @@ model Profile {
   father_name       String?
   alternate_mobile  String?
   dob               DateTime?
-  gender            Gender    @default("Male")
+  gender            Gender    @default(Male)
   experience_years  Int? @default(0)
   current_address   String?   @default("")
   permanent_address String?   @default("")
@@ -85,7 +86,7 @@ model Car {
   seat_capacity Int
   bag_capacity  Int
   base_price    Float
-  price_unit    String     @default(Per KM)    
+  price_unit    String     
   description   String?
   is_available  Boolean      @default(true)
   features      CarFeatures?
