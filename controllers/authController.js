@@ -298,7 +298,7 @@ export const updateAuthInfo = CatchAsyncError(async (req,res,next)=>{
     }
 })
 // Function to generate a unique username
-const generateUniqueUsername = async (name, email) => {
+export const generateUniqueUsername = async (name, email) => {
     // Create a base username from the first few characters of the name and email
     const baseUsername = `${name?.toLowerCase()?.replace(/\s+/g, '')?.slice(0, 5)}${email.split('@')[0].slice(0, 3)}`;
     
@@ -317,7 +317,7 @@ const generateUniqueUsername = async (name, email) => {
     return username;
 };
 // Function to generate a random password
-const generateRandomPassword = (length = 12) => {
+export const generateRandomPassword = (length = 12) => {
     const charset = "abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789!@#$%^&*()_+";
     let password = "";
     for (let i = 0; i < length; i++) {
@@ -333,3 +333,201 @@ export const createActivationToken = async (user) => {
 
     return { token, activation_code }
 }
+// update profile and auth 
+export const updateMyAuthAndProfile = CatchAsyncError(async (req, res, next) => {
+  try {
+    const authId = req.user.id; // from auth middleware
+
+    const { data } = req.body;
+    if (!data) return next(new ErrorHandler("No data provided", 400));
+
+    const payload = typeof data === "string" ? JSON.parse(data) : data;
+
+    const { auth, profile } = payload;
+
+    if (!auth && !profile) {
+      return next(new ErrorHandler("Nothing to update", 400));
+    }
+
+    // 1️⃣ Update AUTH table
+    let updatedAuth = null;
+    if (auth) {
+      updatedAuth = await db.auth.update({
+        where: { id: authId },
+        data: {
+          name: auth.name,
+          email: auth.email,
+          mobile: auth.mobile,
+        },
+      });
+    }
+
+    // 2️⃣ Update or Create PROFILE
+    const profileExists = await db.profile.findUnique({
+      where: { auth_id: authId },
+    });
+
+    let updatedProfile;
+
+    if (profileExists) {
+      updatedProfile = await db.profile.update({
+        where: { auth_id: authId },
+        data: {
+          ...profile,
+          dob: profile.dob ? new Date(profile.dob) : undefined,
+        },
+      });
+    } else {
+      updatedProfile = await db.profile.create({
+        data: {
+          auth_id: authId,
+          ...profile,
+          dob: profile.dob ? new Date(profile.dob) : undefined,
+        },
+      });
+    }
+
+    // 3️⃣ Update Profile Image if present
+    // if (req.file) {
+    //   const imagePath = req.file.path.replace(/.*uploads/, "/uploads");
+
+    //   await db.auth.update({
+    //     where: { id: authId },
+    //     data: { profile_image: imagePath },
+    //   });
+
+    //   updatedAuth.profile_image = imagePath;
+    // }
+
+    res.json({
+      success: true,
+      message: "Profile updated successfully",
+      auth: updatedAuth,
+      profile: updatedProfile,
+    });
+  } catch (err) {
+    next(new ErrorHandler(err.message, 500));
+  }
+});
+
+// admin update of any user like drivers and guider
+export const adminUpdateAnyUser = CatchAsyncError(async (req, res, next) => {
+  try {
+    const { authId } = req.params;
+
+    const adminRole = req.user.role;
+    if (adminRole !== "ADMIN" && adminRole !== "MASTER") {
+      return next(new ErrorHandler("Not allowed", 403));
+    }
+
+    const { data } = req.body;
+    if (!data) return next(new ErrorHandler("No data provided", 400));
+
+    const payload = typeof data === "string" ? JSON.parse(data) : data;
+
+    const user = await db.auth.findUnique({
+      where: { id: authId },
+      include: {
+        Profile: true,
+        Driver: true,
+        Guider: true
+      }
+    });
+
+    if (!user) return next(new ErrorHandler("User not found", 404));
+
+    const { auth, profile, driver, guider } = payload;
+
+    let updatedAuth = user;
+    let updatedProfile = user.Profile;
+    let updatedDriver = user.Driver;
+    let updatedGuider = user.Guider;
+
+    //-----------------------------------------
+    // 1️⃣ Update Auth Table (common)
+    //-----------------------------------------
+    if (auth) {
+      updatedAuth = await db.auth.update({
+        where: { id: authId },
+        data: {
+          name: auth.name,
+          email: auth.email,
+          mobile: auth.mobile,
+          role: auth.role, // admin can update role too
+        },
+      });
+    }
+
+    //-----------------------------------------
+    // 2️⃣ Update or Create Profile
+    //-----------------------------------------
+    if (profile) {
+      if (user.Profile) {
+        updatedProfile = await db.profile.update({
+          where: { auth_id: authId },
+          data: {
+            ...profile,
+            dob: profile.dob ? new Date(profile.dob) : undefined,
+          },
+        });
+      } else {
+        updatedProfile = await db.profile.create({
+          data: {
+            auth_id: authId,
+            ...profile,
+            dob: profile.dob ? new Date(profile.dob) : undefined,
+          },
+        });
+      }
+    }
+
+    //-----------------------------------------
+    // 3️⃣ Update DRIVER table (only if user is driver)
+    //-----------------------------------------
+    if (driver && user.role === "DRIVER") {
+      updatedDriver = await db.driver.update({
+        where: { auth_id: authId },
+        data: {
+          ...driver,
+          driving_license_expiry: driver.driving_license_expiry
+            ? new Date(driver.driving_license_expiry)
+            : undefined,
+        },
+      });
+    }
+
+    //-----------------------------------------
+    // 4️⃣ Update GUIDER table (only for guider)
+    //-----------------------------------------
+    if (guider && user.role === "GUIDER") {
+      updatedGuider = await db.guider.update({
+        where: { auth_id: authId },
+        data: guider,
+      });
+    }
+
+    //-----------------------------------------
+    // 5️⃣ Handle profile image update
+    //-----------------------------------------
+    if (req.file) {
+      const imagePath = req.file.path.replace(/.*uploads/, "/uploads");
+
+      updatedAuth = await db.auth.update({
+        where: { id: authId },
+        data: { profile_image: imagePath },
+      });
+    }
+
+    res.json({
+      success: true,
+      message: "User updated successfully",
+      auth: updatedAuth,
+      profile: updatedProfile,
+      driver: updatedDriver,
+      guider: updatedGuider,
+    });
+
+  } catch (err) {
+    next(new ErrorHandler(err.message, 500));
+  }
+});

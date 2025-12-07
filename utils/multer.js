@@ -37,10 +37,8 @@ const driverStorage = multer.diskStorage({
     if (file.fieldname === "profile") subFolder = "driver/profile";
     if (file.fieldname === "pan") subFolder = "driver/pan";
     if (file.fieldname === "signature") subFolder = "driver/signature";
-    if (file.fieldname === "aadhar_front") subFolder = "driver/aadhar";
-    if (file.fieldname === "aadhar_back") subFolder = "driver/aadhar";
-    if (file.fieldname === "driving_license_front") subFolder = "driver/license";
-    if (file.fieldname === "driving_license_back") subFolder = "driver/license";
+    if (file.fieldname === "aadhar") subFolder = "driver/aadhar";
+    if (file.fieldname === "driving_license") subFolder = "driver/license";
     if (file.fieldname === "health_insurance") subFolder = "driver/license";
     if (file.fieldname === "term_insurance") subFolder = "driver/license";
 
