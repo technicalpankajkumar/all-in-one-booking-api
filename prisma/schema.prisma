@@ -15,10 +15,11 @@ enum Role {
   TOUR_GUIDE    // tour guide
   USER          // normal customer
 }
-enum PriceUnit {
-   per_trip
-   per_km
-   per_day
+
+enum Gender {
+  Male
+  Female
+  Other
 }
 // Auth model
 model Auth {
@@ -34,7 +35,8 @@ model Auth {
   created_at        DateTime @default(now())
   updated_at        DateTime @updatedAt
   profile           Profile?
-  bookings          Booking[]
+  driver            Driver?
+  guider            Guider?
 }
 
 model TokenBlacklist {
@@ -55,13 +57,18 @@ model RefreshTokenList {
 model Profile {
   id                String    @id @default(auto()) @map("_id") @db.ObjectId
   auth_id           String    @unique @db.ObjectId
-  Auth              Auth      @relation(fields: [auth_id], references: [id])
+  auth              Auth      @relation(fields: [auth_id], references: [id])
+  father_name       String?
+  alternate_mobile  String?
+  dob               DateTime?
+  gender            Gender    @default("Male")
+  experience_years  Int? @default(0)
   current_address   String?   @default("")
   permanent_address String?   @default("")
-  city                String?
-  state               String?
-  country             String?
-  pincode             String?
+  city              String?
+  state             String?
+  country           String?
+  pincode           String?
   language          String[]  @default([])
   created_at        DateTime  @default(now())
   updated_at        DateTime  @updatedAt
@@ -78,12 +85,12 @@ model Car {
   seat_capacity Int
   bag_capacity  Int
   base_price    Float
-  price_unit    PriceUnit     @default(per_km)     // per_trip, per_km, per_day
+  price_unit    String     @default(Per KM)    
   description   String?
   is_available  Boolean      @default(true)
   features      CarFeatures?
   images        CarImage[]
-  drivers       Driver[]   // ✨ Many drivers assigned to this car
+  drivers       Driver[]   
   bookings      Booking[]
   created_at    DateTime     @default(now())
   updated_at    DateTime     @updatedAt
@@ -112,24 +119,14 @@ model CarImage {
 // -------------------------------------------------------------
 
 model Driver {
-  id                   String   @id @default(auto()) @map("_id") @db.ObjectId
-  full_name            String
-  father_name          String?
-  email                String   @unique
-  mobile               String   @unique
-  alternate_mobile     String?
-  dob                  DateTime?
-  gender               String?
+  id                  String   @id @default(auto()) @map("_id") @db.ObjectId
+  auth_id             String   @unique @db.ObjectId
+  auth                Auth     @relation(fields: [auth_id], references: [id])
   assigned_car_id      String? @db.ObjectId
-  Car                  Car?     @relation(fields: [assigned_car_id], references: [id])
+  car                  Car?     @relation(fields: [assigned_car_id], references: [id])
   bookings             Booking[]
 
   images              DriverImage[]
-  current_address      String?
-  permanent_address    String?
-  city                 String?
-  state                String?
-  pincode              String?
 
   aadhar_number        String?
   pan_number           String?
@@ -142,8 +139,6 @@ model Driver {
   account_holder_name  String?
   upi_id               String
 
-  experience_years     Int? @default(0)
-  languages_known      String[] @default([])
 
   availability_status  String   @default("offline")
   preferred_city       String?
@@ -162,15 +157,20 @@ model Driver {
 }
 
 enum ImageType {
-   pan
+   pan           // Driver KYC Documents
    profile
    signature
-   aadhar_front
-   aadhar_back
-   driving_license_front
-   driving_license_back
-   health_insurance
+   aadhar
+   driving_license  // Driving Credentials
+   health_insurance // Insurance & Health
    term_insurance
+   rc_book         // Vehicle Ownership Docs
+   puc             // Pollution Certificate (PUC)
+   fitness_certificate
+   permit
+   car_insurance
+   pvc              // Optional but useful
+   address_proof    // ration card , voter id, electricity bill
 }
 
 model DriverImage {
@@ -178,10 +178,27 @@ model DriverImage {
   driver_id    String   @db.ObjectId
   driver       Driver   @relation(fields: [driver_id], references: [id])
 
-  image_type   String    // profile, aadhar_front, aadhar_back, license_front, license_back, rc, insurance, etc.
+  image_type   ImageType    
   image_path   String    // "/uploads/driver/xyz.jpg" or "/uploads/docs/abc.png"
-
   created_at   DateTime  @default(now())
+}
+
+model Guider {
+  id          String   @id @default(auto()) @map("_id") @db.ObjectId
+  auth_id     String   @unique @db.ObjectId
+  auth        Auth     @relation(fields: [auth_id], references: [id])
+  images      GuiderImage[]
+  created_at  DateTime @default(now())
+  updated_at  DateTime @updatedAt
+}
+
+model GuiderImage {
+  id         String   @id @default(auto()) @map("_id") @db.ObjectId
+  guider_id  String   @db.ObjectId
+  guider     Guider   @relation(fields: [guider_id], references: [id])
+  image_type String
+  image_path String
+  created_at DateTime @default(now())
 }
 
 // -------------------------------------------------------------
