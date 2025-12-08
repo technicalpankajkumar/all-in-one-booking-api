@@ -97,7 +97,7 @@ model Car {
   description   String?
   is_available  Boolean      @default(true)
 
-  features      CarFeatures?
+  features      CarJTFeature[]  // join table for features
   images        CarImage[]
   drivers       Driver[]   
   bookings      Booking[]
@@ -110,12 +110,20 @@ model Car {
 
 model CarFeatures {
   id                     String  @id @default(auto()) @map("_id") @db.ObjectId
-  car_id                 String  @unique @db.ObjectId
-  Car                    Car     @relation(fields: [car_id], references: [id])
-  ac                     Boolean @default(false)
-  gps                    Boolean @default(false)
-  music_system           Boolean @default(false)
-  automatic_transmission Boolean @default(false)
+  name        String   @unique
+  category    String   // e.g., "Comfort", "Safety", "Tech", "Exterior"
+  description String?  // optional detail
+  is_active   Boolean  @default(true)
+  car_features CarJTFeature[]   // join table for cars
+}
+
+// Join table for many-to-many relation
+model CarJTFeature {
+  id        String       @id @default(auto()) @map("_id") @db.ObjectId
+  car_id     String       @db.ObjectId
+  car       Car          @relation(fields: [car_id], references: [id])
+  feature_id String       @db.ObjectId
+  feature   CarFeatures   @relation(fields: [feature_id], references: [id])
 }
 
 model CarImage {

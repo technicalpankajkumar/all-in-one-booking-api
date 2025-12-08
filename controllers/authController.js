@@ -522,21 +522,17 @@ export const getAuth = CatchAsyncError(async (req, res, next) => {
       id: { not: loggedId } // Exclude self
     };
 
-    if (loggedRole === "master") {
+    if (loggedRole === "MASTER") {
       // Master sees all except self
       where = { id: { not: loggedId } };
     } 
-    else if (loggedRole === "admin") {
+    else if (loggedRole === "ADMIN") {
       // Admin cannot see master/admin & self
       where = {
         id: { not: loggedId },
-        role: { notIn: ["master", "admin"] }
+        role: { notIn: ["MASTER", "ADMIN"] }
       };
     } 
-    else {
-      return next(new ErrorHandler("Not allowed to access user list", 403));
-    }
-
     // --------------------------------
     // 2️⃣ SEARCH (name, email, phone)
     // --------------------------------
@@ -578,7 +574,7 @@ export const getAuth = CatchAsyncError(async (req, res, next) => {
     // --------------------------------
     // 6️⃣ FETCH DATA (Prisma)
     // --------------------------------
-    const [users, total] = await Promise.all([
+    const [auths, total] = await Promise.all([
       db.auth.findMany({
         where,
         skip,
@@ -604,7 +600,7 @@ export const getAuth = CatchAsyncError(async (req, res, next) => {
       limit,
       total,
       pages: Math.ceil(total / limit),
-      users
+      auths
     });
 
   } catch (err) {

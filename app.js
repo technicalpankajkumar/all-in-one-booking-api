@@ -1,6 +1,5 @@
 import express, { json } from 'express';
 import authRoutes from './routes/authRoute.js';
-import userRoutes from './routes/userRoute.js';
 
 import { errorMiddleware } from './middlewares/errorMiddleware.js';
 import cookieParser from 'cookie-parser';
@@ -10,7 +9,9 @@ import driverRoute from './routes/driverRoute.js';
 import policyRoute from './routes/policyRoute.js';
 import bookingRoute from './routes/bookingRoute.js';
 import transactionRoute from './routes/transactionRoute.js';
+import dashboardRoute from './routes/dashboardRoute.js';
 import { registerUploadFolder } from './utils/multer.js';
+
 export const app = express();
 
 // Parse JSON
@@ -35,7 +36,7 @@ const corsOptions = {
 app.use(cors(corsOptions));
 registerUploadFolder(app);
 app.use('/api/v1/auth', authRoutes);
-app.use('/api/v1/user', userRoutes);
+app.use('/api/v1/dashboard', dashboardRoute);
 app.use('/api/v1/cab', cabRoute);
 app.use('/api/v1/driver', driverRoute);
 app.use('/api/v1/policy', policyRoute);

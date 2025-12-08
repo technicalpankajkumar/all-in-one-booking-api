@@ -1,8 +1,7 @@
-import jwt from 'jsonwebtoken'
-import ErrorHandler from '../utils/errorHandler.js';
-import { db } from '../config/db.js';
-import { CatchAsyncError } from '../utils/catchAsyncError.js';
+import jwt from 'jsonwebtoken';
 import { authService } from '../services/authService.js';
+import { CatchAsyncError } from '../utils/catchAsyncError.js';
+import ErrorHandler from '../utils/errorHandler.js';
 
 // Middleware to validate token and get user
 export const authMiddleware = CatchAsyncError(async (req, res, next) => {

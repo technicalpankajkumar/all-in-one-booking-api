@@ -5,28 +5,34 @@ import ErrorHandler from "../utils/errorHandler.js";
 
 export const createCab = CatchAsyncError(async (req, res, next) => {
   try {
-    const {data} = req.body;
-    const newData = typeof data == 'object' ? data : JSON.parse(data)
+    const { data } = req.body;
+    const newData = typeof data === "object" ? data : JSON.parse(data);
+
     const {
-      car_name, car_type, fuel_type, seat_capacity, bag_capacity,
-      base_price, price_unit, description, is_available,
-      features // optional object { ac, gps, music_system, automatic_transmission }
+      car_name,
+      car_type,
+      fuel_type,
+      seat_capacity,
+      bag_capacity,
+      base_price,
+      price_unit,
+      description,
+      is_available,
+      featureIds // ← ARRAY OF FEATURE IDs
     } = newData;
 
-    // Basic validation
+    // Validate required fields
     if (!car_name || !car_type || !seat_capacity || !base_price || !price_unit) {
-      return res.status(400).json({ error: 'Missing required fields' });
+      return res.status(400).json({ error: "Missing required fields" });
     }
 
-    const existCar = await db.car.findFirst({
-      where: {
-        car_name
-      }
-    });
-    if(existCar){
-        return next(new ErrorHandler('This name car already exist.', 400))
+    // Check duplicate car
+    const existCar = await db.car.findFirst({ where: { car_name } });
+    if (existCar) {
+      return next(new ErrorHandler("This car name already exists.", 400));
     }
 
+    // Create Car
     const car = await db.car.create({
       data: {
         car_name,
@@ -41,71 +47,110 @@ export const createCab = CatchAsyncError(async (req, res, next) => {
       }
     });
 
-    // create features if provided
-    let feature = {}
-    if (features && typeof features === 'object') {
-      feature = await db.carFeatures.create({
-        data: {
-          car_id: car.id,
-          ac: Boolean(features.ac),
-          gps: Boolean(features.gps),
-          music_system: Boolean(features.music_system),
-          automatic_transmission: Boolean(features.automatic_transmission)
-        }
+    // ----------------------------------------------------------
+    // ✅ Add features (many-to-many)
+    // ----------------------------------------------------------
+    if (featureIds && Array.isArray(featureIds) && featureIds.length > 0) {
+      const featureLinks = featureIds.map(fid => ({
+        car_id: car.id,
+        feature_id: fid
+      }));
+
+      await db.carJTFeature.createMany({
+        data: featureLinks,
+        skipDuplicates: true
       });
     }
 
-    // 2) Upload Images if exists
+    // ----------------------------------------------------------
+    // ✅ Upload images
+    // ----------------------------------------------------------
     const files = req.files || [];
-    let isFirst = true; // flag for first image
+    let isMain = true;
 
     for (const file of files) {
       await db.carImage.create({
         data: {
           car_id: car.id,
           image_url: `/uploads/${file.filename}`,
-          is_main: isFirst   // true only for first loop
+          is_main: isMain
         }
       });
-
-      isFirst = false; // next images become false
+      isMain = false;
     }
-    res.status(201).json({ success: true, car: { ...car, features: feature } });
+
+    // Fetch car with all features
+    const fullCar = await db.car.findUnique({
+      where: { id: car.id },
+      include: {
+        features: {
+          include: {
+            feature: true
+          }
+        },
+        images: true
+      }
+    });
+
+    res.status(201).json({
+      success: true,
+      car: fullCar
+    });
+
   } catch (err) {
-    return next(new ErrorHandler(err.message, 500))
+    return next(new ErrorHandler(err.message, 500));
   }
 });
 
-export const updateCabById = CatchAsyncError(async (req, res,next) => {
+
+export const updateCabById = CatchAsyncError(async (req, res, next) => {
   try {
     const { cabId } = req.params;
 
-    
+    // 1) Check if car exists
     const existing = await db.car.findUnique({ where: { id: cabId } });
     if (!existing) return res.status(404).json({ error: "Car not found" });
 
-    const {data,deletedImages} = req.body;
-    const {features,...dataToUpdate} = typeof data == 'object' ? data : JSON.parse(data)
+    // Parse request body
+    const { data, deletedImages } = req.body;
+    const parsedData = typeof data === "object" ? data : JSON.parse(data);
 
-    // Update base info
+    const { features, ...carData } = parsedData;
+
+    // -----------------------------
+    // 2) Update Main Car Data
+    // -----------------------------
     const updatedCar = await db.car.update({
       where: { id: cabId },
-      data: dataToUpdate
+      data: carData
     });
 
-    const featuresExist = await db.carFeatures.findUnique({ where: { car_id: cabId } });
-    if (features && typeof features === 'object'&& featuresExist) {
-      await db.carFeatures.update({
-        where: { car_id: cabId },
-        data: {
-          ac: Boolean(features.ac),
-          gps: Boolean(features.gps),
-          music_system: Boolean(features.music_system),
-          automatic_transmission: Boolean(features.automatic_transmission)
-        }
+    // -----------------------------------------------------------
+    // 3) UPDATE FEATURES (Many-to-Many using CarJTFeature)
+    // features = ["featureId1", "featureId2"]
+    // -----------------------------------------------------------
+    if (Array.isArray(features)) {
+      // STEP 1 → Remove all existing feature relations
+      await db.carJTFeature.deleteMany({
+        where: { car_id: cabId }
       });
+
+      // STEP 2 → Add new feature relations
+      const featureLinks = features.map((fid) => ({
+        car_id: cabId,
+        feature_id: fid
+      }));
+
+      if (featureLinks.length > 0) {
+        await db.carJTFeature.createMany({
+          data: featureLinks
+        });
+      }
     }
 
+    // -----------------------------------------------------------
+    // 4) HANDLE IMAGES (Delete + Add New + Limit Check)
+    // -----------------------------------------------------------
     const parsedDeletedImages =
       typeof deletedImages === "object"
         ? deletedImages
@@ -113,35 +158,29 @@ export const updateCabById = CatchAsyncError(async (req, res,next) => {
         ? JSON.parse(deletedImages)
         : [];
 
-    // -----------------------------
-    //  IMAGE UPDATE HANDLING
-    // -----------------------------
     const files = req.files || [];
 
-    /** STEP 1: Delete images that user removed in UI */
+    /** STEP A: Delete images */
     if (parsedDeletedImages.length > 0) {
       await db.carImage.deleteMany({
         where: {
-          id: {
-            in: parsedDeletedImages,
-          },
+          id: { in: parsedDeletedImages },
         },
       });
     }
 
-    /** STEP 2: Check how many images exist now */
+    /** STEP B: Validate max image count */
     const remainingImages = await db.carImage.count({
       where: { car_id: cabId },
     });
 
-    /** STEP 3: Validate total images limit (max 6) */
     if (remainingImages + files.length > 6) {
       return res.status(400).json({
-        error: `Maximum 6 images allowed. You already have ${remainingImages}.`,
+        error: `Max 6 images allowed. You already have ${remainingImages}.`,
       });
     }
 
-    /** STEP 4: Add new uploaded images */
+    /** STEP C: Add new images */
     for (const file of files) {
       await db.carImage.create({
         data: {
@@ -151,30 +190,53 @@ export const updateCabById = CatchAsyncError(async (req, res,next) => {
       });
     }
 
-    /** STEP 5: Return updated list */
+    /** STEP D: Fetch updated images */
     const updatedImages = await db.carImage.findMany({
       where: { car_id: cabId },
     });
 
-    res.json({ success: true, updatedCar,updatedImages });
+    // -----------------------------------------------------------
+    // 5) Final Response
+    // -----------------------------------------------------------
+    return res.json({
+      success: true,
+      updatedCar,
+      updatedImages,
+      updatedFeatures: features || []
+    });
 
   } catch (error) {
-    return next(new ErrorHandler(error.message, 500))
+    return next(new ErrorHandler(error.message, 500));
   }
 });
+
 
 export const getCabs = CatchAsyncError(async (req, res, next) => {
   try {
     const cars = await db.car.findMany({
       include: {
-        features: true,
         images: true,
-        drivers: true
+        drivers: true,
+
+        // FIXED: return actual feature details
+        features: {
+          include: {
+            feature: true   // <-- returns data from CarFeatures model
+          }
+        }
       }
     });
-    res.json({ success: true, cars });
+
+    // OPTIONAL: Clean up response structure  
+    const formattedCars = cars.map(car => ({
+      ...car,
+      features: car.features.map(f => f.feature)  // extract only feature object
+    }));
+
+    return res.json({ success: true, cars: formattedCars });
+
   } catch (err) {
-    return next(new ErrorHandler(err.message, 500))
+    return next(new ErrorHandler(err.message, 500));
   }
 });
 
@@ -183,12 +245,33 @@ export const getCabById = CatchAsyncError(async (req, res, next) => {
   try {
     const car = await db.car.findUnique({
       where: { id: req.params.cabId },
-      include: { features: true, images: true, drivers: true }
+      include: {
+        images: true,
+        drivers: true,
+
+        // FIX: Load full feature details
+        features: {
+          include: {
+            feature: true
+          }
+        }
+      }
     });
-    if (!car) return res.status(404).json({ error: 'Not found' });
-    res.status(200).status(200).json({ success: true, car });
+
+    if (!car) {
+      return res.status(404).json({ error: 'Car not found' });
+    }
+
+    // Format features to return clean feature details
+    const formattedCar = {
+      ...car,
+      features: car.features.map(f => f.feature)
+    };
+
+    return res.status(200).json({ success: true, car: formattedCar });
+
   } catch (err) {
-    return next(new ErrorHandler(err.message, 500))
+    return next(new ErrorHandler(err.message, 500));
   }
 });
 
@@ -196,13 +279,67 @@ export const getCabById = CatchAsyncError(async (req, res, next) => {
 export const deleteCabById = CatchAsyncError(async (req, res, next) => {
   try {
     const cabId = req.params.cabId;
-    await db.carImage.deleteMany({ where: { car_id: cabId } });
-    await db.carFeatures.deleteMany({ where: { car_id: cabId } });
-    // unassign driver if any
-    await db.driver.updateMany({ where: { assigned_car_id: cabId }, data: { assigned_car_id: null } });
-    await db.car.delete({ where: { id: cabId } });
-    res.json({ success: true });
+
+    // 1) Delete images
+    await db.carImage.deleteMany({
+      where: { car_id: cabId }
+    });
+
+    // 2) Delete all feature relations (JOIN TABLE)
+    await db.carJTFeature.deleteMany({
+      where: { car_id: cabId }
+    });
+
+    // 3) Unassign drivers from this car
+    await db.driver.updateMany({
+      where: { assigned_car_id: cabId },
+      data: { assigned_car_id: null }
+    });
+
+    // 4) Delete the car itself
+    await db.car.delete({
+      where: { id: cabId }
+    });
+
+    return res.json({ success: true });
+
   } catch (err) {
-   return next(new ErrorHandler(err.message, 500))
+    return next(new ErrorHandler(err.message, 500));
   }
 });
+
+// create car features
+export const createCarFeatures = CatchAsyncError(async (req, res, next) => {
+  try{
+    
+    const { name, category, description } = req.body;
+
+    if (!name || !category) {
+      return res.status(400).json({ success: false, message: "Name and category are required." });
+    }
+
+    // Check if feature already exists
+    const existing = await db.carFeatures.findUnique({
+      where: { name },
+    });
+
+    if (existing) {
+      return res.status(400).json({ success: false, message: "Feature already exists." });
+    }
+
+    // Create feature
+    const feature = await db.carFeatures.create({
+      data: {
+        name,
+        category,
+        description: description || null,
+      },
+    });
+
+    return res.status(201).json({ success: true, data: feature });
+  }
+  catch (err) {
+   return next(new ErrorHandler(err.message, 500))
+  }
+
+})
