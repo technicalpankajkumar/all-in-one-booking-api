@@ -45,13 +45,13 @@ class AuthService {
     // ------------------------------
     signAccessToken(user) {
         return jwt.sign(user, process.env.ACCESS_TOKEN_SECRET || '', {
-            expiresIn: '1d',
+            expiresIn: '28d',
         });
     }
 
     signRefreshToken(user) {
         return jwt.sign(user, process.env.REFRESH_TOKEN_SECRET || '', {
-            expiresIn: '7d',
+            expiresIn: '45d',
         });
     }
 

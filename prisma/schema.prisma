@@ -34,10 +34,17 @@ model Auth {
   verification_code String   @default("")
   created_at        DateTime @default(now())
   updated_at        DateTime @updatedAt
+
+  created_by        String?  @db.ObjectId   // reference of master or admin
+  created_role      String?                // "master" | "admin"
+
+  // Relation
   profile           Profile?
   driver            Driver?
+  created_drivers   Driver[] @relation("CreatedDrivers")
   guider            Guider?
   booking           Booking[]
+  cars               Car[]
 }
 
 model TokenBlacklist {
@@ -89,10 +96,14 @@ model Car {
   price_unit    String     
   description   String?
   is_available  Boolean      @default(true)
+
   features      CarFeatures?
   images        CarImage[]
   drivers       Driver[]   
   bookings      Booking[]
+
+  created_by_id String?        @db.ObjectId
+  created_by    Auth?         @relation(fields: [created_by_id], references: [id])
   created_at    DateTime     @default(now())
   updated_at    DateTime     @updatedAt
 }
@@ -152,6 +163,9 @@ model Driver {
   emergency_contact_name    String?
   emergency_contact_number  String?
   emergency_contact_relation String?
+
+  created_by_id        String?        @db.ObjectId
+  created_by           Auth? @relation("CreatedDrivers", fields: [created_by_id], references: [id])
 
   created_at           DateTime @default(now())
   updated_at           DateTime @updatedAt

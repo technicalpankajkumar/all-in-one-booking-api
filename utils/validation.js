@@ -74,9 +74,6 @@ const profileUpdateValidation = [
     body('summary').optional().notEmpty().withMessage('Summary cannot be empty'),
 ];
 
-const updateAuthInfoValidation = [
-    body('code').notEmpty().withMessage('Code cannot be empty'),
-]
 
 const reGenerateTokenValidation = [
     body('refreshToken').notEmpty().withMessage('refreshToken cannot be empty'),
@@ -89,6 +86,5 @@ export  {
     changePasswordValidation,
     forgetPasswordValidation,
     changeAuthRequestValidation,
-    updateAuthInfoValidation,
     reGenerateTokenValidation
 };

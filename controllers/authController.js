@@ -273,30 +273,6 @@ export const changeAuthRequest=CatchAsyncError(async(req,res,next)=>{
         return next(new ErrorHandler(error.message, 400));
     }
 })
-//update auth information 
-export const updateAuthInfo = CatchAsyncError(async (req,res,next)=>{
-    const { code,token } = req.body;
-    const {user} = req;
-    try{
-        const updateAuth = jwt.verify(token, process.env.ACCESS_TOKEN_SECRET);
-
-        if (updateAuth.activation_code != code) {
-            return next(new ErrorHandler("Invalid activation code", 400))
-        }
-
-        let query = {where: { id: user.id }}
-        let data = {
-            email: updateAuth.email,
-            mobile: updateAuth.mobile,
-        }
-        await authService.updateAuth(query,data);
-
-        return res.status(200).send({message: "Auth updated successfully!"})
-
-    }catch(error){
-        return next(new ErrorHandler(error.message, 400));
-    }
-})
 // Function to generate a unique username
 export const generateUniqueUsername = async (name, email) => {
     // Create a base username from the first few characters of the name and email
@@ -525,6 +501,110 @@ export const adminUpdateAnyUser = CatchAsyncError(async (req, res, next) => {
       profile: updatedProfile,
       driver: updatedDriver,
       guider: updatedGuider,
+    });
+
+  } catch (err) {
+    next(new ErrorHandler(err.message, 500));
+  }
+});
+
+ 
+export const getAuth = CatchAsyncError(async (req, res, next) => {
+  try {
+    const loggedUser = req.user;
+    const loggedId = loggedUser.id; // prisma uses "id"
+    const loggedRole = loggedUser.role;
+
+    // --------------------------------
+    // 1️⃣ ROLE BASED ACCESS RULES
+    // --------------------------------
+    let where = {
+      id: { not: loggedId } // Exclude self
+    };
+
+    if (loggedRole === "master") {
+      // Master sees all except self
+      where = { id: { not: loggedId } };
+    } 
+    else if (loggedRole === "admin") {
+      // Admin cannot see master/admin & self
+      where = {
+        id: { not: loggedId },
+        role: { notIn: ["master", "admin"] }
+      };
+    } 
+    else {
+      return next(new ErrorHandler("Not allowed to access user list", 403));
+    }
+
+    // --------------------------------
+    // 2️⃣ SEARCH (name, email, phone)
+    // --------------------------------
+    const search = req.query.search;
+    if (search) {
+      where.OR = [
+        { name: { contains: search, mode: "insensitive" } },
+        { email: { contains: search, mode: "insensitive" } },
+        { phone: { contains: search, mode: "insensitive" } }
+      ];
+    }
+
+    // --------------------------------
+    // 3️⃣ FILTER BY ROLE (?role=driver)
+    // --------------------------------
+    if (req.query.role) {
+      where.role = req.query.role;
+    }
+
+    // --------------------------------
+    // 4️⃣ SORTING (?sort=name or ?sort=-createdAt)
+    // --------------------------------
+    const sortQuery = req.query.sort || "-createdAt";
+    let orderBy = {};
+
+    if (sortQuery.startsWith("-")) {
+      orderBy[sortQuery.substring(1)] = "desc";
+    } else {
+      orderBy[sortQuery] = "asc";
+    }
+
+    // --------------------------------
+    // 5️⃣ PAGINATION
+    // --------------------------------
+    const page = Number(req.query.page) || 1;
+    const limit = Number(req.query.limit) || 10;
+    const skip = (page - 1) * limit;
+
+    // --------------------------------
+    // 6️⃣ FETCH DATA (Prisma)
+    // --------------------------------
+    const [users, total] = await Promise.all([
+      db.auth.findMany({
+        where,
+        skip,
+        take: limit,
+        orderBy,
+        select: {
+          id: true,
+          name: true,
+          email: true,
+          phone: true,
+          role: true,
+          createdAt: true
+          // password, refreshToken automatically excluded
+        }
+      }),
+
+      db.auth.count({ where })
+    ]);
+
+    return res.status(200).json({
+      success: true,
+      page,
+      limit,
+      total,
+      pages: Math.ceil(total / limit),
+      users
     });
 
   } catch (err) {
