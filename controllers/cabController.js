@@ -2,7 +2,7 @@ import { db } from "../config/db.js";
 import { CatchAsyncError } from "../utils/catchAsyncError.js";
 import ErrorHandler from "../utils/errorHandler.js";
 
-
+// create cab // tested ! 1 //
 export const createCab = CatchAsyncError(async (req, res, next) => {
   try {
     const { data } = req.body;
@@ -18,7 +18,7 @@ export const createCab = CatchAsyncError(async (req, res, next) => {
       price_unit,
       description,
       is_available,
-      featureIds // ← ARRAY OF FEATURE IDs
+      feature_ids
     } = newData;
 
     // Validate required fields
@@ -50,15 +50,14 @@ export const createCab = CatchAsyncError(async (req, res, next) => {
     // ----------------------------------------------------------
     // ✅ Add features (many-to-many)
     // ----------------------------------------------------------
-    if (featureIds && Array.isArray(featureIds) && featureIds.length > 0) {
-      const featureLinks = featureIds.map(fid => ({
+    if (feature_ids && Array.isArray(feature_ids) && feature_ids.length > 0) {
+      const featureLinks = feature_ids.map(fid => ({
         car_id: car.id,
         feature_id: fid
       }));
 
       await db.carJTFeature.createMany({
-        data: featureLinks,
-        skipDuplicates: true
+        data: featureLinks
       });
     }
 
@@ -102,7 +101,7 @@ export const createCab = CatchAsyncError(async (req, res, next) => {
   }
 });
 
-
+// update cab //
 export const updateCabById = CatchAsyncError(async (req, res, next) => {
   try {
     const { cabId } = req.params;
@@ -210,7 +209,7 @@ export const updateCabById = CatchAsyncError(async (req, res, next) => {
   }
 });
 
-
+// get cabs // tested ! 1 //
 export const getCabs = CatchAsyncError(async (req, res, next) => {
   try {
     const cars = await db.car.findMany({
@@ -240,7 +239,7 @@ export const getCabs = CatchAsyncError(async (req, res, next) => {
   }
 });
 
-
+// get cab by id // tested ! 1 //
 export const getCabById = CatchAsyncError(async (req, res, next) => {
   try {
     const car = await db.car.findUnique({
@@ -308,7 +307,7 @@ export const deleteCabById = CatchAsyncError(async (req, res, next) => {
   }
 });
 
-// create car features
+// create car features   // tested ! 1 //
 export const createCarFeatures = CatchAsyncError(async (req, res, next) => {
   try{
     
@@ -342,4 +341,50 @@ export const createCarFeatures = CatchAsyncError(async (req, res, next) => {
    return next(new ErrorHandler(err.message, 500))
   }
 
-})
+});
+
+// get features  // tested ! 1 //
+export const getCarFeatures = CatchAsyncError(async (req, res, next) => {
+  try {
+    let { search = "", limit = 10, page = 1 } = req.query;
+
+    limit = parseInt(limit);
+    page = parseInt(page);
+    const skip = (page - 1) * limit;
+
+    let query = {};
+
+    if (search.trim() !== ""){
+      query = {
+        OR: [
+          { name: { contains: search, mode: "insensitive" } },
+          { category: { contains: search, mode: "insensitive" } }
+        ]
+      };
+    }
+    const features = await db.carFeatures.findMany({
+      where: query,
+      take: limit,
+      skip,
+      orderBy:
+        search.trim() !== ""
+          ? { name: "asc" }      // If searching → sorted
+          : {                   // Default → RANDOM LIST
+              id: "asc"
+            }
+    });
+
+    const total = await db.carFeatures.count({ where: query });
+
+    return res.status(200).json({
+      success: true,
+      total,
+      page,
+      limit,
+      data: features,
+    });
+
+  } catch (err) {
+    return next(new ErrorHandler(err.message, 500));
+  }
+});
