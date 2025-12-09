@@ -8,6 +8,7 @@ import path from "path";
 export const createCab = CatchAsyncError(async (req, res, next) => {
   try {
     const { data } = req.body;
+    const user = req.user;
     const newData = typeof data === "object" ? data : JSON.parse(data);
 
     const {
@@ -45,7 +46,8 @@ export const createCab = CatchAsyncError(async (req, res, next) => {
         base_price: parseFloat(base_price),
         price_unit,
         description,
-        is_available: is_available === undefined ? true : Boolean(is_available)
+        is_available: is_available === undefined ? true : Boolean(is_available),
+        created_by_id:user.id
       }
     });
 

@@ -5,9 +5,11 @@ import ErrorHandler from "../utils/errorHandler.js";
 import { generateRandomPassword, generateUniqueUsername } from "./authController.js";
 import sendMail from "../utils/sendEmail.js";
 
+// create driver // tested ! 1 //
 export const createDriver = CatchAsyncError(async (req, res, next) => {
   try {
     const { data } = req.body;
+    const user = req.user;
     const newData = typeof data === "object" ? data : JSON.parse(data);
 
     const {
@@ -22,6 +24,7 @@ export const createDriver = CatchAsyncError(async (req, res, next) => {
       permanent_address,
       city,
       state,
+      country,
       pincode,
       aadhar_number,
       pan_number,
@@ -113,6 +116,7 @@ export const createDriver = CatchAsyncError(async (req, res, next) => {
         emergency_contact_number,
         emergency_contact_relation,
         assigned_car_id,
+        created_by_id:user.id
       },
     });
 
@@ -154,9 +158,9 @@ export const createDriver = CatchAsyncError(async (req, res, next) => {
     res.status(201).json({
       success: true,
       message: "Driver account created successfully!",
-      // auth,
+      auth,
       profileCreated: true,
-      // driver,
+      driver,
     });
   } catch (err) {
     next(new ErrorHandler(err.message, 500));
