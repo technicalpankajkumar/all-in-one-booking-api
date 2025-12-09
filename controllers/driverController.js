@@ -4,6 +4,7 @@ import fs from "fs";
 import ErrorHandler from "../utils/errorHandler.js";
 import { generateRandomPassword, generateUniqueUsername } from "./authController.js";
 import sendMail from "../utils/sendEmail.js";
+import path from "path";
 
 // create driver // tested ! 1 //
 export const createDriver = CatchAsyncError(async (req, res, next) => {
@@ -116,7 +117,7 @@ export const createDriver = CatchAsyncError(async (req, res, next) => {
         emergency_contact_number,
         emergency_contact_relation,
         assigned_car_id,
-        created_by_id:user.id
+        created_by_id: user.id
       },
     });
 
@@ -167,61 +168,97 @@ export const createDriver = CatchAsyncError(async (req, res, next) => {
   }
 });
 
+// update driver // tested ! 1 //
 export const updateDriver = CatchAsyncError(async (req, res, next) => {
   try {
     const { driverId } = req.params;
 
+    if (!driverId) {
+      return next(new ErrorHandler("Driver ID is required", 400));
+    }
+
+    // ----------------------------------------------------------------------
+    // 1️⃣ Parse incoming data (matches createDriver)
+    // ----------------------------------------------------------------------
     const { data, deletedImages } = req.body;
+    if (!data) return next(new ErrorHandler("No update data provided", 400));
 
-    if (!data) throw new ErrorHandler("No data provided", 400);
+    const updateData = typeof data === "object" ? data : JSON.parse(data);
 
-    const updateData = typeof data === "string" ? JSON.parse(data) : data;
-
-    // Destructure incoming data
     const {
-      auth,
-      profile,
+      auth: authFields,
+      profile: profileFields,
       driver: driverFields,
     } = updateData;
 
-    // 1️⃣ Update Auth table
-    if (auth) {
+    // Fetch existing driver
+    const existingDriver = await db.driver.findUnique({
+      where: { id: driverId },
+      include: {
+        auth: { include: { profile: true } },
+        images: true,
+      }
+    });
+
+    if (!existingDriver) {
+      return next(new ErrorHandler("Driver not found", 404));
+    }
+
+    // ----------------------------------------------------------------------
+    // 2️⃣ Update Auth (email, mobile, name)
+    // ----------------------------------------------------------------------
+    if (authFields) {
       await db.auth.update({
-        where: { id: auth.id },
+        where: { id: existingDriver.auth_id },
         data: {
-          name: auth.name,
-          email: auth.email,
-          mobile: auth.mobile,
+          name: authFields.name,
+          email: authFields.email,
+          mobile: authFields.mobile,
         },
       });
     }
 
-    // 2️⃣ Update Profile table
-    if (profile) {
+    // ----------------------------------------------------------------------
+    // 3️⃣ Update Profile
+    // ----------------------------------------------------------------------
+    if (profileFields) {
       await db.profile.update({
-        where: { auth_id: auth.id },
-        data: profile,
+        where: { auth_id: existingDriver.auth_id },
+        data: {
+          ...profileFields,
+          dob: profileFields.dob ? new Date(profileFields.dob) : null,
+          experience_years: Number(profileFields.experience_years),
+        },
       });
     }
 
-    // 3️⃣ Update Driver fields
+    // ----------------------------------------------------------------------
+    // 4️⃣ Update Driver table
+    // ----------------------------------------------------------------------
     let driver = await db.driver.update({
       where: { id: driverId },
-      data: driverFields,
+      data: {
+        ...driverFields,
+        driving_license_expiry: driverFields?.driving_license_expiry
+          ? new Date(driverFields.driving_license_expiry)
+          : null,
+      },
     });
 
-    // 4️⃣ Delete selected old images
+    // ----------------------------------------------------------------------
+    // 5️⃣ Delete Selected Images (from DB + folder)
+    // ----------------------------------------------------------------------
     if (deletedImages) {
       const deleteList = JSON.parse(deletedImages);
 
       for (const imageId of deleteList) {
-        const image = await db.driverImage.findUnique({
-          where: { id: imageId },
-        });
+        const img = await db.driverImage.findUnique({ where: { id: imageId } });
+        if (img) {
+          const filePath = "." + img.image_path; // convert to filesystem path
 
-        if (image) {
-          const filePath = `.${image.image_path}`;
-          if (fs.existsSync(filePath)) fs.unlinkSync(filePath);
+          if (fs.existsSync(filePath)) {
+            fs.unlinkSync(filePath);
+          }
 
           await db.driverImage.delete({
             where: { id: imageId },
@@ -230,85 +267,183 @@ export const updateDriver = CatchAsyncError(async (req, res, next) => {
       }
     }
 
-    // 5️⃣ Add new uploaded images
+    // ----------------------------------------------------------------------
+    // 6️⃣ Add New Uploaded Images (update or create)
+    // ----------------------------------------------------------------------
     const files = req.files || {};
 
     for (const field in files) {
       const file = files[field][0];
+      const newImagePath = file.path.replace(/.*uploads/, "/uploads");
 
+      // 1️⃣ Check if an image of this type already exists for this driver
+      const existingImage = await db.driverImage.findFirst({
+        where: {
+          driver_id: driverId,
+          image_type: field
+        }
+      });
+
+      // 2️⃣ If existing → delete old file + remove DB entry
+      if (existingImage) {
+        const oldFilePath = `.${existingImage.image_path}`;
+        if (fs.existsSync(oldFilePath)) {
+          fs.unlinkSync(oldFilePath); // delete file from folder
+        }
+
+        await db.driverImage.delete({
+          where: { id: existingImage.id }
+        });
+      }
+
+      // 3️⃣ Add new image entry
       await db.driverImage.create({
         data: {
           driver_id: driverId,
-          image_type: field, // must match enum value
-          image_path: file.path.replace(/.*uploads/, "/uploads"),
-        },
+          image_type: field,
+          image_path: newImagePath
+        }
       });
     }
 
-    // 6️⃣ Fetch full updated driver record
+
+    // ----------------------------------------------------------------------
+    // 7️⃣ Return updated driver with full relation data
+    // ----------------------------------------------------------------------
     const updatedDriver = await db.driver.findUnique({
       where: { id: driverId },
       include: {
         images: true,
+        auth: { include: { profile: true } }
+      }
+    });
+
+    res.status(200).json({
+      success: true,
+      message: "Driver updated successfully!",
+      driver: updatedDriver,
+    });
+
+  } catch (err) {
+    next(new ErrorHandler(err.message, 500));
+  }
+});
+
+// get drivers // tested ! 1 //
+export const getDriver = CatchAsyncError(async (req, res, next) => {
+  try {
+    const {
+      page = 1,
+      limit = 10,
+      search = "",
+      assigned_car_id,
+      status,
+    } = req.query;
+
+    const skip = (page - 1) * limit;
+
+    // --------------------------------------------
+    // 1️⃣ Build Search Conditions
+    // --------------------------------------------
+    let where = {};
+
+    if (search) {
+      where.OR = [
+        { auth: { name: { contains: search, mode: "insensitive" } } },
+        { auth: { email: { contains: search, mode: "insensitive" } } },
+        { auth: { mobile: { contains: search } } },
+        { aadhar_number: { contains: search } },
+        { pan_number: { contains: search } },
+      ];
+    }
+
+    // Optional filters
+    if (assigned_car_id) where.assigned_car_id = assigned_car_id;
+    if (status) where.status = status;
+
+    // --------------------------------------------
+    // 2️⃣ Fetch Drivers
+    // --------------------------------------------
+    const drivers = await db.driver.findMany({
+      where,
+      skip: Number(skip),
+      take: Number(limit),
+
+      orderBy: search
+        ? { created_at: "desc" }                // If search → latest first
+        : { id: "asc" },
+
+      include: {
+        images: true,
+        car: true,
         auth: {
           include: { profile: true },
         },
       },
     });
 
-    res.json({
+    // --------------------------------------------
+    // 3️⃣ Count for Pagination
+    // --------------------------------------------
+    const total = await db.driver.count({ where });
+
+    res.status(200).json({
       success: true,
-      message: "Driver updated successfully",
-      driver: updatedDriver,
+      page: Number(page),
+      limit: Number(limit),
+      total,
+      drivers,
     });
   } catch (err) {
     next(new ErrorHandler(err.message, 500));
   }
 });
 
-export const getDriver = CatchAsyncError( async (req, res,next) => {
+// getbyid driver // tested ! 1 //
+export const getDriverById = CatchAsyncError(async (req, res, next) => {
   try {
-    const drivers = await db.driver.findMany({ include: { car: true ,images:true} });
-    res.status(200).json({ success: true, drivers });
+    const { id } = req.params;
+
+    const driver = await db.driver.findUnique({
+      where: { id },
+      include: {
+        images: true,
+        car: {
+          include: {
+            images: true   // Include car images
+          }
+        },
+        auth: {
+          include: {
+            profile: true
+          }
+        }
+      }
+    });
+
+    if (!driver) {
+      throw new ErrorHandler("Driver not found", 404);
+    }
+
+    res.json({ success: true, driver });
   } catch (err) {
     next(new ErrorHandler(err.message, 500))
   }
 });
 
-export const getDriverById = CatchAsyncError(async (req, res,next) => {
-  try{
-    const { id } = req.params;
-
-  const driver = await db.driver.findUnique({
-    where: { id },
-    include: { images: true,  car: {
-      include: {
-        images: true        // car images
-      }
-    } }
-  });
-
-  if (!driver) {
-    throw new ErrorHandler("Driver not found", 404);
-  }
-
-  res.json({ success: true, driver });
-}catch(err){
-  next(new ErrorHandler(err.message, 500))
-}
-});
-
-
+// hard delete of driver // tested ! 1 //
 export const deleteDriver = CatchAsyncError(async (req, res, next) => {
   try {
     const { id } = req.params;
 
-    // Fetch driver with images + auth reference
+    // Fetch driver with relations
     const driver = await db.driver.findUnique({
       where: { id },
       include: {
-        Images: true,
-        Auth: true
+        images: true,
+        auth: {
+          include: { profile: true }
+        }
       }
     });
 
@@ -318,10 +453,15 @@ export const deleteDriver = CatchAsyncError(async (req, res, next) => {
 
     const authId = driver.auth_id;
 
-    // 1️⃣ Delete all image files from local storage
-    for (const img of driver.Images) {
+    // ----------------------------------------------------------------------
+    // 1️⃣ Delete physical image files from uploads folder
+    // ----------------------------------------------------------------------
+    for (const img of driver.images) {
       if (img.image_path) {
-        const filePath = path.join(process.cwd(), img.image_path.replace("/uploads", "uploads"));
+        const filePath = path.join(
+          process.cwd(),
+          img.image_path.replace("/uploads", "uploads")
+        );
 
         if (fs.existsSync(filePath)) {
           fs.unlinkSync(filePath);
@@ -329,36 +469,41 @@ export const deleteDriver = CatchAsyncError(async (req, res, next) => {
       }
     }
 
-    // 2️⃣ Use a transaction for database cleanup
-    await db.$transaction(async (prisma) => {
-      // Delete images
-      await prisma.driverImage.deleteMany({
-        where: { driver_id: id }
+    // ----------------------------------------------------------------------
+    // 2️⃣ Hard Delete Everything using Prisma Transaction
+    // ----------------------------------------------------------------------
+    await db.$transaction(async (tx) => {
+      // Delete Driver Images
+      await tx.driverImage.deleteMany({
+        where: { driver_id: driver.id }
       });
 
-      // Delete profile
-      await prisma.profile.deleteMany({
+      // Delete Profile
+      await tx.profile.deleteMany({
         where: { auth_id: authId }
       });
 
-      // Delete driver table entry
-      await prisma.driver.delete({
-        where: { id }
+      // Delete Driver
+      await tx.driver.delete({
+        where: { id: driver.id }
       });
 
-      // Delete auth (last)
-      await prisma.auth.delete({
+      // Delete Auth
+      await tx.auth.delete({
         where: { id: authId }
       });
     });
 
-    return res.json({
+    // ----------------------------------------------------------------------
+    // 3️⃣ Success Response
+    // ----------------------------------------------------------------------
+    return res.status(200).json({
       success: true,
-      message: "Driver and all related data deleted successfully"
+      message: "Driver and all related records deleted successfully"
     });
 
   } catch (err) {
-    next(new ErrorHandler(err.message, 500));
+    return next(new ErrorHandler(err.message, 500));
   }
 });
 

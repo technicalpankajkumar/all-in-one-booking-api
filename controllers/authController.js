@@ -4,7 +4,7 @@ import { CatchAsyncError } from '../utils/catchAsyncError.js';
 import ErrorHandler from '../utils/errorHandler.js';
 import sendMail from '../utils/sendEmail.js';
 import { authService } from '../services/authService.js';
-
+//register auth  // tested 1
 export const register = CatchAsyncError(async (req, res,next)=> {
     
     const { name, email, mobile } = req.body;
@@ -42,7 +42,7 @@ export const register = CatchAsyncError(async (req, res,next)=> {
         return next(new ErrorHandler(error.message, 400))
     }
 });
-// activate user 
+// activate user  // tested 1
 export const activateUser = CatchAsyncError(async (req,res, next)=>{
     const { token, code } = req.body;
     try {
@@ -91,7 +91,7 @@ export const activateUser = CatchAsyncError(async (req,res, next)=>{
         return next(new ErrorHandler(error.message, 400))
     }
 })
-// Login User
+// Login User  // tested 1
 export const login  = CatchAsyncError( async (req, res,next)=> {
     const { login, password } = req.body;
     const match = login?.toLowerCase();
@@ -167,7 +167,7 @@ export const reGenerateToken  = CatchAsyncError( async (req, res) => {
 
     res.json({ accessToken });
 });
-// Logout User
+// Logout User  // tested 1
 export const logout = CatchAsyncError(async (req, res, next) => {
     const token = req.headers['authorization'] || req.cookies?.token; // Get the token from the Authorization header
     const { refresh_token } = req.body;
@@ -187,7 +187,7 @@ export const logout = CatchAsyncError(async (req, res, next) => {
         return next(new ErrorHandler('Token not provided',400))
     }
 });
-// change password functionality
+// change password functionality // tested 1
 export const changePassword = CatchAsyncError(async (req, res, next)=>{
     const { new_password , current_password} = req.body; // Get the updated user data from the request body
     const {id,password} = req.user; // Get the user details from the request 
@@ -508,7 +508,7 @@ export const adminUpdateAnyUser = CatchAsyncError(async (req, res, next) => {
   }
 });
 
- 
+ //access auth list 
 export const getAuth = CatchAsyncError(async (req, res, next) => {
   try {
     const loggedUser = req.user;
