@@ -289,6 +289,12 @@ model Booking {
   payment_status String     // Paid, Pending, Partially
   booking_status String     // Confirmed, Cancelled, Completed ,Booked
   transaction    Transaction[]
+
+ 
+  cancelled_at   DateTime?
+  completed_at   DateTime?
+  updated_at     DateTime  @updatedAt
+  created_at     DateTime  @default(now())
 }
 
 // -------------------------------------------------------------

@@ -17,15 +17,14 @@ export const createCab = CatchAsyncError(async (req, res, next) => {
       fuel_type,
       seat_capacity,
       bag_capacity,
-      base_price,
-      price_unit,
+      car_fare_rules,
       description,
       is_available,
       feature_ids
     } = newData;
 
     // Validate required fields
-    if (!car_name || !car_type || !seat_capacity || !base_price || !price_unit) {
+    if (!car_name || !car_type || !seat_capacity) {
       return res.status(400).json({ error: "Missing required fields" });
     }
 
@@ -43,13 +42,33 @@ export const createCab = CatchAsyncError(async (req, res, next) => {
         fuel_type,
         seat_capacity: Number(seat_capacity),
         bag_capacity: bag_capacity ? Number(bag_capacity) : 0,
-        base_price: parseFloat(base_price),
-        price_unit,
         description,
         is_available: is_available === undefined ? true : Boolean(is_available),
-        created_by_id:user.id
+        created_by_id: user.id
       }
     });
+
+    if (car_fare_rules) {
+      const { 
+        base_fare, night_fultiplier, minimum_fare, late_compensation_per_min, 
+        waiting_charge_per_min, price_per_min, price_per_km, night_start, night_end 
+      } = car_fare_rules;
+
+      await db.carFareRule.create({
+        data: {
+          car_id: car.id,
+          base_fare: Number.parseFloat(base_fare),
+          price_per_km: Number.parseFloat(price_per_km),
+          price_per_min: Number.parseFloat(price_per_min),
+          waiting_charge_per_min: Number.parseFloat(waiting_charge_per_min),
+          late_compensation_per_min: Number.parseFloat(late_compensation_per_min),
+          minimum_fare: Number.parseFloat(minimum_fare),
+          night_fultiplier: Number.parseFloat(night_fultiplier),
+          night_start: night_start || "21:00",
+          night_end: night_end || "05:00"
+        }
+      });
+    }
 
     // ----------------------------------------------------------
     // ✅ Add features (many-to-many)
@@ -127,16 +146,45 @@ export const updateCabById = CatchAsyncError(async (req, res, next) => {
           ? JSON.parse(deletedImages)
           : [];
 
-    const { feature_ids, ...carData } = parsedData;
+    const { feature_ids,car_fare_rules, ...carData } = parsedData;
 
     // -----------------------------
     // 2) Update Main Car Data
     // -----------------------------
     const updatedCar = await db.car.update({
       where: { id: cabId },
-      data: carData,
+      data: {
+        car_name:carData.car_name,
+        car_type:carData.car_type,
+        fuel_type:carData.fuel_type,
+        seat_capacity: Number(carData.seat_capacity || 0),
+        bag_capacity: bag_capacity ? Number(carData.bag_capacity || 0) : 0,
+        description:carData.description,
+        is_available: carData.is_available === undefined ? true : Boolean(carData.is_available),
+      },
     });
 
+    if (car_fare_rules) {
+      const { 
+        base_fare, night_fultiplier, minimum_fare, late_compensation_per_min, 
+        waiting_charge_per_min, price_per_min, price_per_km, night_start, night_end 
+      } = car_fare_rules;
+
+      await db.carFareRule.update({
+        where:{ id: cabId },
+        data:{
+          base_fare: Number.parseFloat(base_fare),
+          price_per_km: Number.parseFloat(price_per_km),
+          price_per_min: Number.parseFloat(price_per_min),
+          waiting_charge_per_min: Number.parseFloat(waiting_charge_per_min),
+          late_compensation_per_min: Number.parseFloat(late_compensation_per_min),
+          minimum_fare: Number.parseFloat(minimum_fare),
+          night_fultiplier: Number.parseFloat(night_fultiplier),
+          night_start: night_start || "21:00",
+          night_end: night_end || "05:00"
+        }
+      });
+    }
     // -----------------------------------------------------------
     // 3) UPDATE FEATURES (Many-to-Many)
     // -----------------------------------------------------------
@@ -251,7 +299,7 @@ export const getCabs = CatchAsyncError(async (req, res, next) => {
       include: {
         images: true,
         drivers: true,
-
+        fare_rules:true,
         // FIXED: return actual feature details
         features: {
           include: {
@@ -282,7 +330,7 @@ export const getCabById = CatchAsyncError(async (req, res, next) => {
       include: {
         images: true,
         drivers: true,
-
+        fare_rules:true,
         // FIX: Load full feature details
         features: {
           include: {
