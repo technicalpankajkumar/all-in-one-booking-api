@@ -92,7 +92,6 @@ model Car {
   fuel_type     String?
   seat_capacity Int
   bag_capacity  Int
-   
   description   String?
   is_available  Boolean      @default(true)
 
@@ -106,7 +105,7 @@ model Car {
   created_at    DateTime     @default(now())
   updated_at    DateTime     @updatedAt
 
-  fareRules     CarFareRule?
+  fare_rules     CarFareRule?
 }
 
 model CarFeatures {
