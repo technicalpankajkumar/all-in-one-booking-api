@@ -111,44 +111,22 @@ export const createBooking = CatchAsyncError(async (req, res, next) => {
       from_location,
       to_location,
       distance_km,
-      duration_min,
       waiting_min = 0,
       driver_late_min = 0,
       pickup_time,
       travel_date,
       trip_type,
       payment_method,
-      passengers
+      passengers,
+      fare_result,
     } = newData;
 
-    // 1️⃣ Fetch Fare Rules for the car
-    const rule = await prisma.carFareRule.findUnique({
-      where: { car_id },
-    });
-
-    if (!rule) {
-      return res.status(404).json({ message: "Fare rule not found" });
-    }
-
-    // 2️⃣ Calculate Final Fare
-    const fareResult = calculateFinalFare(rule, {
-      distanceKm: distance_km,
-      durationMin: duration_min,
-      waitingMin: waiting_min,
-      driverLateMin: driver_late_min,
-      pickupTime: pickup_time,
-    });
-
-      const car = await db.car.findUnique({
-      where: { id: car_id },
-      include: { drivers: true }
-    });
 
     const booking = await db.booking.create({
       data: {
         user_id: userId,
         car_id,
-        driver_id: driver_id || car?.drivers?.[0]?.id || null,
+        driver_id: driver_id || null,
         from_location,
         to_location,
         distance_km,
@@ -156,8 +134,8 @@ export const createBooking = CatchAsyncError(async (req, res, next) => {
         waiting_min,
         driver_late_min,
         pickup_time,
-        is_night_ride: fareResult.isNightRide,
-        final_fare: fareResult.finalFare,
+        is_night_ride: fare_result.isNightRide,
+        final_fare: fare_result.finalFare,
         travel_date: new Date(travel_date).toISOString(),
         trip_type,
         passengers: passengers || [],
@@ -179,8 +157,8 @@ export const createBooking = CatchAsyncError(async (req, res, next) => {
       success: true,
       message: "Booking created successfully",
       booking,
-      fare_breakdown: fareResult.breakdown,
-      final_fare: fareResult.finalFare,
+      fare_breakdown: fare_result.breakdown,
+      final_fare: fare_result.finalFare,
     });
   } catch (err) {
     next(new ErrorHandler(err.message, 500));
@@ -318,6 +296,40 @@ export const getBookingById = CatchAsyncError(async (req, res, next) => {
   }
 });
 
+
+export const realTimeFareCalculate = CatchAsyncError(async (req,res,next) => {
+  try{
+     
+    const {distance_km,waiting_min =0,driver_late_min=0,pickup_time} = req.body;
+    
+    // Auto calculate duration based on speed 70 km/hr
+    const duration_min = Number.parseFloat(distance_km) / (70 / 60);
+
+    // 1️⃣ Fetch Fare Rules for the car
+    const rule = await prisma.carFareRule.findUnique({
+      where: { car_id },
+    });
+
+    if (!rule) {
+      return res.status(404).json({ message: "Fare rule not found" });
+    }
+
+    // 2️⃣ Calculate Final Fare
+    const fareResult = calculateFinalFare(rule, {
+      distanceKm: Number(distance_km),
+      durationMin: duration_min,
+      waitingMin:  Number(waiting_min) || 0,
+      driverLateMin: Number(driver_late_min) || 0,
+      pickupTime: pickup_time,
+    });
+    return res.json({
+      success: true,
+      fare_result: fareResult
+    });
+  }catch (err) {
+    next(new ErrorHandler(err.message, 500));
+  }
+})
 
 
 
