@@ -106,6 +106,8 @@ model Car {
   created_by    Auth?         @relation(fields: [created_by_id], references: [id])
   created_at    DateTime     @default(now())
   updated_at    DateTime     @updatedAt
+
+  fareRules     CarFareRule?
 }
 
 model CarFeatures {
@@ -132,6 +134,27 @@ model CarImage {
   Car       Car    @relation(fields: [car_id], references: [id])
   image_url String
   is_main   Boolean @default(false)
+}
+
+model CarFareRule {
+  id                         String   @id @default(auto()) @map("_id") @db.ObjectId
+
+  car_id                     String   @unique @db.ObjectId
+  car                        Car      @relation(fields: [car_id], references: [id])
+
+  base_fare                  Float         // 200
+  price_per_km               Float         // 12
+  price_per_min              Float         // 2
+  waiting_charge_per_min     Float         // 2
+  late_compensation_per_min  Float         // 1
+  minimum_fare               Float         // 500
+
+  night_fultiplier           Float         // 1.25
+  night_start                String        // "21:00"
+  night_end                  String        // "05:00"
+
+  created_at                 DateTime      @default(now())
+  updated_at                 DateTime      @updatedAt
 }
 
 // -------------------------------------------------------------
@@ -253,16 +276,21 @@ model Booking {
   from_location  String
   to_location    String
   distance_km    Float
-  total_price    Float
+  duration_min   Float
+  travel_time    String?    // ⬅ added (e.g. "3 hr 25 min")
   booking_time   DateTime  @default(now())
   travel_date    DateTime
-  travel_time    String?    // ⬅ added (e.g. "3 hr 25 min")
-  trip_type      String     // "one_way" or "round_trip"
+  waiting_min    Float?
+  driver_late_min   Float?
+  pickup_time    String
+  is_night_ride  Boolean
+  final_fare     Float
+  trip_type      String     // "One Way" or "Round Trip" or "full day trip"
   passengers     Json?      // ⬅ ADDED — array of passenger objects
   payment_method String     // Cash, UPI, Card
-  payment_status String     // Paid, Pending
+  payment_status String     // Paid, Pending, Partially
   booking_status String     // Confirmed, Cancelled, Completed ,Booked
-  transaction    Transaction?
+  transaction    Transaction[]
 }
 
 // -------------------------------------------------------------
@@ -270,7 +298,7 @@ model Booking {
 // -------------------------------------------------------------
 model Transaction {
   id               String   @id @default(auto()) @map("_id") @db.ObjectId
-  booking_id       String   @unique @db.ObjectId
+  booking_id       String   @db.ObjectId
   Booking          Booking  @relation(fields: [booking_id], references: [id])
   amount           Float
   status           String   // success, failed, pending
