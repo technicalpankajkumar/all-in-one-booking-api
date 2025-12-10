@@ -92,8 +92,7 @@ model Car {
   fuel_type     String?
   seat_capacity Int
   bag_capacity  Int
-  base_price    Float
-  price_unit    String     
+   
   description   String?
   is_available  Boolean      @default(true)
 
