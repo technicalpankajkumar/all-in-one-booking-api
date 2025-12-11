@@ -134,29 +134,30 @@ export const login  = CatchAsyncError( async (req, res,next)=> {
         res.cookie('token', token, { httpOnly: true, secure: process.env.NODE_ENV === 'production' });
         res.cookie('refreshToken', refresh_token, { httpOnly: true, secure: process.env.NODE_ENV === 'production' });
 
-       return res.status(200).send({ data:{token,refresh_token, name : user.name , email :user.email , mobile : user.mobile,role:user.role},success:true });
+       return res.status(200).send({ user:{ name : user.name , email :user.email , mobile : user.mobile,role:user.role},access_token:token,refresh_token, success:true });
 
     } catch (error) {
         return next(new ErrorHandler(error.message, 400))
     }
 })
 // Refresh token endpoint
-export const reGenerateToken  = CatchAsyncError( async (req, res) => {
-    const { refreshToken } = req.body;
+export const reGenerateToken  = CatchAsyncError( async (req, res,next) => {
+    try{
+      const { refresh_token } = req.body;
 
-    if (!refreshToken) {
+    if (!refresh_token) {
         return next(new ErrorHandler('Refresh token required',401))
     }
 
     // Check if the refresh token is blacklisted
-    const isBlacklisted = await authService.isTokenBlacklisted(refreshToken);
+    const isBlacklisted = await authService.isTokenBlacklisted(refresh_token);
     if (isBlacklisted) {
         return next(new ErrorHandler('Refresh token is blacklisted',403));
     }
 
     // Verify the refresh token
-    const decoded = jwt.verify(refreshToken, process.env.REFRESH_TOKEN_SECRET || '');
-    const storedRefreshToken = await authService.findRefreshToken(refreshToken);
+    const decoded = jwt.verify(refresh_token, process.env.REFRESH_TOKEN_SECRET || '');
+    const storedRefreshToken = await authService.findRefreshToken(refresh_token);
 
     if (!storedRefreshToken || storedRefreshToken.auth_id !== decoded.id) {
         return next(new ErrorHandler('Invalid refresh token',403))
@@ -165,7 +166,10 @@ export const reGenerateToken  = CatchAsyncError( async (req, res) => {
     // Generate new access token
     const accessToken = authService.signAccessToken({ id: decoded.id });
 
-    res.json({ accessToken });
+    res.json({ access_token:accessToken,success:true });
+  }catch (error) {
+        return next(new ErrorHandler(error.message, 400));
+  }
 });
 // Logout User  // tested 1
 export const logout = CatchAsyncError(async (req, res, next) => {

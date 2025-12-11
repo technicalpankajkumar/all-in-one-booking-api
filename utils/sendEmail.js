@@ -33,7 +33,6 @@ const sendMail = CatchAsyncError(async (options)=>{
         html,
     }
     await transporter.sendMail(mailOptions);
-    console.log('we here')
 })
 
 export default sendMail;
