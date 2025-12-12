@@ -49,9 +49,9 @@ export const createCab = CatchAsyncError(async (req, res, next) => {
     });
 
     if (car_fare_rules) {
-      const { 
-        base_fare, night_fultiplier, minimum_fare, late_compensation_per_min, 
-        waiting_charge_per_min, price_per_min, price_per_km, night_start, night_end 
+      const {
+        base_fare, night_fultiplier, minimum_fare, late_compensation_per_min,
+        waiting_charge_per_min, price_per_min, price_per_km, night_start, night_end
       } = car_fare_rules;
 
       await db.carFareRule.create({
@@ -146,7 +146,7 @@ export const updateCabById = CatchAsyncError(async (req, res, next) => {
           ? JSON.parse(deletedImages)
           : [];
 
-    const { feature_ids,car_fare_rules, ...carData } = parsedData;
+    const { feature_ids, car_fare_rules, ...carData } = parsedData;
 
     // -----------------------------
     // 2) Update Main Car Data
@@ -154,25 +154,25 @@ export const updateCabById = CatchAsyncError(async (req, res, next) => {
     const updatedCar = await db.car.update({
       where: { id: cabId },
       data: {
-        car_name:carData.car_name,
-        car_type:carData.car_type,
-        fuel_type:carData.fuel_type,
+        car_name: carData.car_name,
+        car_type: carData.car_type,
+        fuel_type: carData.fuel_type,
         seat_capacity: Number(carData.seat_capacity || 0),
         bag_capacity: bag_capacity ? Number(carData.bag_capacity || 0) : 0,
-        description:carData.description,
+        description: carData.description,
         is_available: carData.is_available === undefined ? true : Boolean(carData.is_available),
       },
     });
 
     if (car_fare_rules) {
-      const { 
-        base_fare, night_fultiplier, minimum_fare, late_compensation_per_min, 
-        waiting_charge_per_min, price_per_min, price_per_km, night_start, night_end 
+      const {
+        base_fare, night_fultiplier, minimum_fare, late_compensation_per_min,
+        waiting_charge_per_min, price_per_min, price_per_km, night_start, night_end
       } = car_fare_rules;
 
       await db.carFareRule.update({
-        where:{ id: cabId },
-        data:{
+        where: { id: cabId },
+        data: {
           base_fare: Number.parseFloat(base_fare),
           price_per_km: Number.parseFloat(price_per_km),
           price_per_min: Number.parseFloat(price_per_min),
@@ -292,35 +292,91 @@ export const updateCabById = CatchAsyncError(async (req, res, next) => {
   }
 });
 
-// get cabs // tested ! 1 //
+// get cabs // tested ! 1 // /cars?page=1&limit=10&search=innova&car_type=SUV&sortBy=price&sortOrder=asc
 export const getCabs = CatchAsyncError(async (req, res, next) => {
   try {
+    // 🔹 Query Params
+    const page = Number(req.query.page) || 1;
+    const limit = Number(req.query.limit) || 10;
+    const skip = (page - 1) * limit;
+
+    const search = req.query.search?.toString() || "";
+    const sortBy = req.query.sortBy?.toString() || "created_at";
+    const sortOrder = req.query.sortOrder?.toString() === "asc" ? "asc" : "desc";
+
+    // 🔹 Filters  
+    const filters = {};
+
+    if (req.query.car_type) filters.car_type = req.query.car_type;
+    if (req.query.fuel_type) filters.fuel_type = req.query.fuel_type;
+    if (req.query.transmission) filters.transmission = req.query.transmission;
+    if (req.query.min_seats) filters.seat_capacity = { gte: Number(req.query.min_seats) };
+    if (req.query.max_seats) filters.seat_capacity = { lte: Number(req.query.max_seats) };
+
+    // 🔹 Search on multiple columns
+    const searchFilter =
+      search
+        ? {
+          OR: [
+            { name: { contains: search, mode: "insensitive" } },
+            { brand: { contains: search, mode: "insensitive" } },
+            { model: { contains: search, mode: "insensitive" } },
+          ],
+        }
+        : {};
+
+    // 🔹 TOTAL COUNT (with search + filters)
+    const total = await db.car.count({
+      where: {
+        ...filters,
+        ...searchFilter,
+      },
+    });
+
+    // 🔹 FETCH PAGINATED DATA
     const cars = await db.car.findMany({
+      where: {
+        ...filters,
+        ...searchFilter,
+      },
+      skip,
+      take: limit,
+      orderBy: {
+        [sortBy]: sortOrder,
+      },
       include: {
         images: true,
         drivers: true,
-        fare_rules:true,
-        // FIXED: return actual feature details
+        fare_rules: true,
         features: {
           include: {
-            feature: true   // <-- returns data from CarFeatures model
-          }
-        }
-      }
+            feature: true,
+          },
+        },
+      },
     });
 
-    // OPTIONAL: Clean up response structure  
-    const formattedCars = cars.map(car => ({
+    // 🔹 Format features
+    const formattedCars = cars.map((car) => ({
       ...car,
-      features: car.features.map(f => f.feature)  // extract only feature object
+      features: car.features.map((f) => f.feature),
     }));
 
-    return res.json({ success: true, cars: formattedCars });
-
+    return res.status(200).json({
+      success: true,
+      data: {
+        page,
+        limit,
+        total,
+        totalPages: Math.ceil(total / limit),
+        cars: formattedCars,
+      }
+    });
   } catch (err) {
     return next(new ErrorHandler(err.message, 500));
   }
 });
+
 
 // get cab by id // tested ! 1 //
 export const getCabById = CatchAsyncError(async (req, res, next) => {
@@ -330,7 +386,7 @@ export const getCabById = CatchAsyncError(async (req, res, next) => {
       include: {
         images: true,
         drivers: true,
-        fare_rules:true,
+        fare_rules: true,
         // FIX: Load full feature details
         features: {
           include: {
