@@ -24,7 +24,7 @@ export const createCab = CatchAsyncError(async (req, res, next) => {
     } = newData;
 
     // Validate required fields
-    if (!car_name || !car_type || !seat_capacity) {
+    if (!car_name || !car_type || !seat_capacity || !fuel_type) {
       return res.status(400).json({ error: "Missing required fields" });
     }
 
