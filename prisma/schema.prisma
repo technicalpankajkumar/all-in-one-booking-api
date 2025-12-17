@@ -147,7 +147,7 @@ model CarFareRule {
   late_compensation_per_min  Float         // 1
   minimum_fare               Float         // 500
 
-  night_fultiplier           Float         // 1.25
+  night_multiplier           Float         // 1.25
   night_start                String        // "21:00"
   night_end                  String        // "05:00"
 

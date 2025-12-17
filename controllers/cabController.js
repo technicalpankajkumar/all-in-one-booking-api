@@ -17,10 +17,10 @@ export const createCab = CatchAsyncError(async (req, res, next) => {
       fuel_type,
       seat_capacity,
       bag_capacity,
-      car_fare_rules,
       description,
       is_available,
-      feature_ids
+      feature_ids,
+      fare_rules
     } = newData;
 
     // Validate required fields
@@ -48,11 +48,11 @@ export const createCab = CatchAsyncError(async (req, res, next) => {
       }
     });
 
-    if (car_fare_rules) {
+    if (fare_rules) {
       const {
-        base_fare, night_fultiplier, minimum_fare, late_compensation_per_min,
+        base_fare, night_multiplier, minimum_fare, late_compensation_per_min,
         waiting_charge_per_min, price_per_min, price_per_km, night_start, night_end
-      } = car_fare_rules;
+      } = fare_rules;
 
       await db.carFareRule.create({
         data: {
@@ -63,7 +63,7 @@ export const createCab = CatchAsyncError(async (req, res, next) => {
           waiting_charge_per_min: Number.parseFloat(waiting_charge_per_min),
           late_compensation_per_min: Number.parseFloat(late_compensation_per_min),
           minimum_fare: Number.parseFloat(minimum_fare),
-          night_fultiplier: Number.parseFloat(night_fultiplier),
+          night_multiplier: Number.parseFloat(night_multiplier),
           night_start: night_start || "21:00",
           night_end: night_end || "05:00"
         }
@@ -146,7 +146,7 @@ export const updateCabById = CatchAsyncError(async (req, res, next) => {
           ? JSON.parse(deletedImages)
           : [];
 
-    const { feature_ids, car_fare_rules, ...carData } = parsedData;
+    const { feature_ids, fare_rules, ...carData } = parsedData;
 
     // -----------------------------
     // 2) Update Main Car Data
@@ -164,11 +164,11 @@ export const updateCabById = CatchAsyncError(async (req, res, next) => {
       },
     });
 
-    if (car_fare_rules) {
+    if (fare_rules) {
       const {
-        base_fare, night_fultiplier, minimum_fare, late_compensation_per_min,
+        base_fare, night_multiplier, minimum_fare, late_compensation_per_min,
         waiting_charge_per_min, price_per_min, price_per_km, night_start, night_end
-      } = car_fare_rules;
+      } = fare_rules;
 
       await db.carFareRule.update({
         where: { id: cabId },
@@ -179,7 +179,7 @@ export const updateCabById = CatchAsyncError(async (req, res, next) => {
           waiting_charge_per_min: Number.parseFloat(waiting_charge_per_min),
           late_compensation_per_min: Number.parseFloat(late_compensation_per_min),
           minimum_fare: Number.parseFloat(minimum_fare),
-          night_fultiplier: Number.parseFloat(night_fultiplier),
+          night_multiplier: Number.parseFloat(night_multiplier),
           night_start: night_start || "21:00",
           night_end: night_end || "05:00"
         }
