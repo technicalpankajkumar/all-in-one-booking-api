@@ -128,22 +128,23 @@ export const createCab = CatchAsyncError(async (req, res, next) => {
 export const updateCabById = CatchAsyncError(async (req, res, next) => {
   try {
     const { cabId } = req.params;
-
+    
+    if(!cabId) return res.status(404).json({ error: "Invalid Id found!" });
     // 1) Check if car exists
     const existing = await db.car.findUnique({ where: { id: cabId } });
     if (!existing) return res.status(404).json({ error: "Car not found" });
 
     // Parse request body
-    const { data, deletedImages } = req.body;
+    const { data, delete_images } = req.body;
 
     const parsedData =
       typeof data === "object" ? data : data ? JSON.parse(data) : {};
 
     const parsedDeletedImages =
-      typeof deletedImages === "object"
-        ? deletedImages
-        : deletedImages
-          ? JSON.parse(deletedImages)
+      typeof delete_images === "object"
+        ? delete_images
+        : delete_images
+          ? JSON.parse(delete_images)
           : [];
 
     const { feature_ids, fare_rules, ...carData } = parsedData;
@@ -158,7 +159,7 @@ export const updateCabById = CatchAsyncError(async (req, res, next) => {
         car_type: carData.car_type,
         fuel_type: carData.fuel_type,
         seat_capacity: Number(carData.seat_capacity || 0),
-        bag_capacity: bag_capacity ? Number(carData.bag_capacity || 0) : 0,
+        bag_capacity: carData.bag_capacity ? Number(carData.bag_capacity || 0) : 0,
         description: carData.description,
         is_available: carData.is_available === undefined ? true : Boolean(carData.is_available),
       },
@@ -170,20 +171,28 @@ export const updateCabById = CatchAsyncError(async (req, res, next) => {
         waiting_charge_per_min, price_per_min, price_per_km, night_start, night_end
       } = fare_rules;
 
-      await db.carFareRule.update({
-        where: { id: cabId },
-        data: {
-          base_fare: Number.parseFloat(base_fare),
-          price_per_km: Number.parseFloat(price_per_km),
-          price_per_min: Number.parseFloat(price_per_min),
-          waiting_charge_per_min: Number.parseFloat(waiting_charge_per_min),
-          late_compensation_per_min: Number.parseFloat(late_compensation_per_min),
-          minimum_fare: Number.parseFloat(minimum_fare),
-          night_multiplier: Number.parseFloat(night_multiplier),
-          night_start: night_start || "21:00",
-          night_end: night_end || "05:00"
-        }
-      });
+      const data = {
+              base_fare: Number(base_fare),
+              price_per_km: Number(price_per_km),
+              price_per_min: Number(price_per_min),
+              waiting_charge_per_min: Number(waiting_charge_per_min),
+              late_compensation_per_min: Number(late_compensation_per_min),
+              minimum_fare: Number(minimum_fare),
+              night_multiplier: Number(night_multiplier),
+              night_start: night_start || "21:00",
+              night_end: night_end || "05:00",
+            }
+            
+      await db.carFareRule.upsert({
+            where: {
+              car_id: cabId,
+            },
+            update: data ,
+            create: {
+              car_id:cabId,
+              ...data},
+          });
+
     }
     // -----------------------------------------------------------
     // 3) UPDATE FEATURES (Many-to-Many)
@@ -349,12 +358,17 @@ export const getCabs = CatchAsyncError(async (req, res, next) => {
         drivers: true,
         fare_rules: true,
         features: {
-          include: {
-            feature: true,
+          select: {
+          feature: {
+            select: {
+              id: true,
+              name: true,
+              },
+            },
           },
         },
-      },
-    });
+      }
+  });
 
     // 🔹 Format features
     const formattedCars = cars.map((car) => ({
@@ -387,12 +401,16 @@ export const getCabById = CatchAsyncError(async (req, res, next) => {
         images: true,
         drivers: true,
         fare_rules: true,
-        // FIX: Load full feature details
         features: {
-          include: {
-            feature: true
-          }
-        }
+          select: {
+          feature: {
+            select: {
+              id: true,
+              name: true,
+              },
+            },
+          },
+        },
       }
     });
 
