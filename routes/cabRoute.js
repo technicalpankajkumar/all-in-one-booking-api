@@ -4,12 +4,12 @@ import { createCab, createCarFeatures, deleteCabById, getCabById, getCabs, getCa
 import { uploadFile } from '../utils/multer.js';
 const cabRoute = Router();
 
-cabRoute.post('/create', authMiddleware,uploadFile.array('images', 6),createCab)
-.put('/update/:cabId', authMiddleware,uploadFile.array('images', 6),updateCabById)
-.get('/get',getCabs)
-.get('/get/:cabId', authMiddleware,getCabById)
-.delete('/delete/:cabId', authMiddleware,deleteCabById)
-.post('/feature/create',authMiddleware,createCarFeatures)
-.get('/feature/get',authMiddleware,getCarFeatures)
+cabRoute.post('/', authMiddleware,uploadFile.array('images', 6),createCab)
+.post('/feature',authMiddleware,createCarFeatures)
+.get('/feature',authMiddleware,getCarFeatures)
+.get('/',getCabs)
+.put('/:cabId', authMiddleware,uploadFile.array('images', 6),updateCabById)
+.get('/:cabId', authMiddleware,getCabById)
+.delete('/:cabId', authMiddleware,deleteCabById)
 
 export default cabRoute;

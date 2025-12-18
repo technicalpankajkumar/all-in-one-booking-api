@@ -332,15 +332,15 @@ export const updateDriver = CatchAsyncError(async (req, res, next) => {
 // get drivers // tested ! 1 //
 export const getDriver = CatchAsyncError(async (req, res, next) => {
   try {
-    const {
-      page = 1,
-      limit = 10,
-      search = "",
-      assigned_car_id,
-      status,
-    } = req.query;
-
+    const page = Number(req.query.page) || 1;
+    const limit = Number(req.query.limit) || 10;
     const skip = (page - 1) * limit;
+    const assigned_car_id = req.query.assigned_car_id || null;
+    const status = req.query.status || null;
+
+    const search = req.query.search?.toString() || "";
+    const sortBy = req.query.sortBy?.toString() || "created_at";
+    const sortOrder = req.query.sortOrder?.toString() === "asc" ? "asc" : "desc";
 
     // --------------------------------------------
     // 1️⃣ Build Search Conditions
@@ -369,9 +369,9 @@ export const getDriver = CatchAsyncError(async (req, res, next) => {
       skip: Number(skip),
       take: Number(limit),
 
-      orderBy: search
-        ? { created_at: "desc" }                // If search → latest first
-        : { id: "asc" },
+      orderBy: {
+        [sortBy]: sortOrder,
+      },
 
       include: {
         images: true,

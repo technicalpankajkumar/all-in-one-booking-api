@@ -327,9 +327,8 @@ export const getCabs = CatchAsyncError(async (req, res, next) => {
       search
         ? {
           OR: [
-            { name: { contains: search, mode: "insensitive" } },
-            { brand: { contains: search, mode: "insensitive" } },
-            { model: { contains: search, mode: "insensitive" } },
+            { car_name: { contains: search, mode: "insensitive" } },
+            { fuel_type: { contains: search, mode: "insensitive" } }
           ],
         }
         : {};
