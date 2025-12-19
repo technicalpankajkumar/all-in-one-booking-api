@@ -1,6 +1,6 @@
 import { Router } from 'express';
 import { authMiddleware } from '../middlewares/authMiddleware.js';
-import { createDriver, deleteDriver, getDriver, getDriverById, updateDriver } from '../controllers/driverController.js';
+import { createDriver, deleteDriver, getDriver, getDriverById, updateDriver, updateDriverSpecificData } from '../controllers/driverController.js';
 import { uploadDriver } from '../utils/multer.js';
 const driverRoute = Router();
 
@@ -26,6 +26,10 @@ driverRoute
             { name: "term_insurance", maxCount: 1 }
         ]),
         updateDriver)
+    .patch("/:driverId",uploadDriver.fields([
+            { name: "profile", maxCount: 1 }
+        ]),
+        updateDriverSpecificData)
     .get("/:id",authMiddleware, getDriverById)
     .delete("/:id",authMiddleware,deleteDriver)
 

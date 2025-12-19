@@ -180,7 +180,7 @@ export const updateDriver = CatchAsyncError(async (req, res, next) => {
     // ----------------------------------------------------------------------
     // 1️⃣ Parse incoming data (matches createDriver)
     // ----------------------------------------------------------------------
-    const { data, deletedImages } = req.body;
+    const { data, deleted_images } = req.body;
     if (!data) return next(new ErrorHandler("No update data provided", 400));
 
     const updateData = typeof data === "object" ? data : JSON.parse(data);
@@ -248,8 +248,8 @@ export const updateDriver = CatchAsyncError(async (req, res, next) => {
     // ----------------------------------------------------------------------
     // 5️⃣ Delete Selected Images (from DB + folder)
     // ----------------------------------------------------------------------
-    if (deletedImages) {
-      const deleteList = JSON.parse(deletedImages);
+    if (deleted_images) {
+      const deleteList = JSON.parse(deleted_images);
 
       for (const imageId of deleteList) {
         const img = await db.driverImage.findUnique({ where: { id: imageId } });
@@ -270,42 +270,10 @@ export const updateDriver = CatchAsyncError(async (req, res, next) => {
     // ----------------------------------------------------------------------
     // 6️⃣ Add New Uploaded Images (update or create)
     // ----------------------------------------------------------------------
-    const files = req.files || {};
-
-    for (const field in files) {
-      const file = files[field][0];
-      const newImagePath = file.path.replace(/.*uploads/, "/uploads");
-
-      // 1️⃣ Check if an image of this type already exists for this driver
-      const existingImage = await db.driverImage.findFirst({
-        where: {
-          driver_id: driverId,
-          image_type: field
-        }
-      });
-
-      // 2️⃣ If existing → delete old file + remove DB entry
-      if (existingImage) {
-        const oldFilePath = `.${existingImage.image_path}`;
-        if (fs.existsSync(oldFilePath)) {
-          fs.unlinkSync(oldFilePath); // delete file from folder
-        }
-
-        await db.driverImage.delete({
-          where: { id: existingImage.id }
+    await upsertDriverImages({
+          driverId,
+          files: req.files || {},
         });
-      }
-
-      // 3️⃣ Add new image entry
-      await db.driverImage.create({
-        data: {
-          driver_id: driverId,
-          image_type: field,
-          image_path: newImagePath
-        }
-      });
-    }
-
 
     // ----------------------------------------------------------------------
     // 7️⃣ Return updated driver with full relation data
@@ -410,15 +378,31 @@ export const getDriverById = CatchAsyncError(async (req, res, next) => {
   try {
     const { id } = req.params;
 
+    if (!id) {
+      throw new ErrorHandler("ID not found", 404);
+    }
+
     const driver = await db.driver.findUnique({
       where: { id },
       include: {
         images: true,
         car: {
           include: {
-            images: true   // Include car images
+            images: true,
+            fare_rules:true,
+            features: {
+            select: {
+              feature: {
+                select: {
+                  id: true,
+                  name: true,
+                  },
+              },
+            },
+        },
           }
         },
+        
         auth: {
           select: { 
             profile: true,
@@ -436,7 +420,15 @@ export const getDriverById = CatchAsyncError(async (req, res, next) => {
       throw new ErrorHandler("Driver not found", 404);
     }
 
-    res.json({ success: true, driver });
+    const formattedDriver = {
+      ...driver,
+      car:{
+        ...driver.car,
+        features: driver?.car.features.map(f => f.feature)
+      }
+    };
+
+    res.json({ success: true, driver:formattedDriver });
   } catch (err) {
     next(new ErrorHandler(err.message, 500))
   }
@@ -518,3 +510,107 @@ export const deleteDriver = CatchAsyncError(async (req, res, next) => {
   }
 });
 
+// update assign car and driver availibility and profile . // tested ! 1 //
+export const updateDriverSpecificData = CatchAsyncError(async (req, res, next) => {
+  try {
+    const { driverId } = req.params;
+    const { data } = req.body;
+
+    const newData = typeof data === "object" ? data : JSON.parse(data);
+
+    if (!driverId) {
+      return next(new ErrorHandler("Driver ID is required", 400));
+    }
+
+    const {
+      assigned_car_id,
+      availability_status,
+    } = newData;
+
+    const driverExists = await db.driver.findUnique({
+      where: { id: driverId },
+      select: { id: true }
+    });
+
+    if (!driverExists) {
+      return next(new ErrorHandler("Driver not found", 404));
+    }
+
+    const availabilityStatus = ["Offline","Online","In-Drive"];
+
+    const updatedDriver = await db.driver.update({
+      where: { id: driverId },
+      data: {
+        ...(assigned_car_id !== undefined && {
+          assigned_car_id: assigned_car_id || null
+        }),
+        ...(availability_status !== undefined && {
+          availability_status: availabilityStatus.includes(availability_status) ? availability_status : "Offline"
+        }),
+      },
+    });
+
+    await upsertDriverImages({
+            driverId,
+            files: req.files || {},
+          });
+
+    res.status(200).json({
+      success: true,
+      message: "Driver data updated successfully",
+      driver: updatedDriver,
+    });
+
+  } catch (err) {
+    next(new ErrorHandler(err.message, 500));
+  }
+});
+
+// tested ! 1 //
+export const upsertDriverImages = async ({
+  driverId,
+  files = {},
+}) => {
+  if (!driverId || !files || Object.keys(files).length === 0) return;
+
+  for (const imageType of Object.keys(files)) {
+    const file = files?.[imageType]?.[0];
+    if (!file) continue;
+
+    const newImagePath = file.path.replace(/.*uploads/, "/uploads");
+
+    // 🔍 Find existing image of same type
+    const existingImage = await db.driverImage.findFirst({
+      where: {
+        driver_id: driverId,
+        image_type: imageType,
+      },
+    });
+
+    // 🗑️ Delete old image (file + db)
+    if (existingImage?.image_path) {
+      const oldFilePath = `.${existingImage.image_path}`;
+
+      try {
+        if (fs.existsSync(oldFilePath)) {
+          fs.unlinkSync(oldFilePath);
+        }
+      } catch (err) {
+        console.error("Failed to delete old driver image:", err);
+      }
+
+      await db.driverImage.delete({
+        where: { id: existingImage.id },
+      });
+    }
+
+    // ➕ Create new image
+    await db.driverImage.create({
+      data: {
+        driver_id: driverId,
+        image_type: imageType,
+        image_path: newImagePath,
+      },
+    });
+  }
+};

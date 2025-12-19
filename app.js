@@ -29,7 +29,7 @@ app.use(cookieParser());
 // CORS configuration to allow all origins
 const corsOptions = {
     origin: '*', // Allow all origins or specify your allowed origins
-    methods: ['GET', 'POST', 'PUT', 'DELETE', 'OPTIONS'],
+    methods: ['GET', 'POST', 'PUT', 'DELETE', 'OPTIONS','PATCH'],
     credentials: true // Allow credentials if needed
   };
   
