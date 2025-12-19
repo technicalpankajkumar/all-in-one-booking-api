@@ -338,9 +338,9 @@ export const getDriver = CatchAsyncError(async (req, res, next) => {
     const assigned_car_id = req.query.assigned_car_id || null;
     const status = req.query.status || null;
 
-    const search = req.query.search?.toString() || "";
-    const sortBy = req.query.sortBy?.toString() || "created_at";
-    const sortOrder = req.query.sortOrder?.toString() === "asc" ? "asc" : "desc";
+    const search = req.query?.search?.toString() || "";
+    const sortBy = req.query?.sortBy?.toString() || "created_at";
+    const sortOrder = req.query?.sortOrder?.toString() === "asc" ? "asc" : "desc";
 
     // --------------------------------------------
     // 1️⃣ Build Search Conditions
@@ -377,7 +377,13 @@ export const getDriver = CatchAsyncError(async (req, res, next) => {
         images: true,
         car: true,
         auth: {
-          include: { profile: true },
+          select: { 
+            profile: true,
+            name:true,
+            email:true,
+            mobile:true,
+            username:true
+          },
         },
       },
     });
@@ -414,11 +420,16 @@ export const getDriverById = CatchAsyncError(async (req, res, next) => {
           }
         },
         auth: {
-          include: {
-            profile: true
-          }
-        }
+          select: { 
+            profile: true,
+            name:true,
+            email:true,
+            mobile:true,
+            username:true
+          },
+        },
       }
+      
     });
 
     if (!driver) {

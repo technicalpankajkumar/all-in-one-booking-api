@@ -6,7 +6,7 @@ const driverRoute = Router();
 
 driverRoute
     .get('/', authMiddleware, getDriver)
-    .post('/create', authMiddleware, uploadDriver.fields([
+    .post('/', authMiddleware, uploadDriver.fields([
             { name: "profile", maxCount: 1 },
             { name: "signature", maxCount: 1 },
             { name: "aadhar", maxCount: 1 },
@@ -15,7 +15,7 @@ driverRoute
             { name: "health_insurance", maxCount: 1 },
             { name: "term_insurance", maxCount: 1 }
         ]), createDriver)
-    .put("/update/:driverId",
+    .put("/:driverId",
         uploadDriver.fields([
             { name: "profile", maxCount: 1 },
             { name: "signature", maxCount: 1 },
